@@ -201,7 +201,7 @@ A treia etapă fuzionează cele șase liste de rezultate prin Reciprocal Rank Fu
 \end{equation}
 unde $r_l(d)$ este rangul fragmentului $d$ în lista $l$, iar $k=60$. Constanta $k$ atenuează influența pozițiilor de top, astfel încât un fragment aflat constant pe locuri bune în mai multe liste să fie favorizat față de unul aflat pe primul loc într-o singură listă. După fuziune se păstrează primii 40 de candidați.
 
-A patra etapă este rerankingul. Cross-encoderul \texttt{ms-marco-MiniLM-L-6-v2} primește perechea (interogare, fragment) și produce un scor de relevanță. Spre deosebire de modelul de embedding, care codifică separat interogarea și fragmentul, cross-encoderul le procesează împreună, ceea ce dă o estimare mai precisă a relevanței, dar cu un cost de calcul mai mare. Din acest motiv el se aplică doar celor 40 de candidați rămași, nu întregului corpus. Primele cinci fragmente după rerankingul cross-encoder ajung la modelul generativ, care produce răspunsul cu același prompt de groundare ca în varianta Naive.
+A patra etapă este rerankingul. Cross-encoderul \texttt{ms-marco-MiniLM-L-6-v2} primește perechea (interogare, fragment) și produce un scor de relevanță. Spre deosebire de modelul de embedding, care codifică separat interogarea și fragmentul, cross-encoderul le procesează împreună, ceea ce dă o estimare mai precisă a relevanței, dar cu un cost de calcul mai mare. Din acest motiv el se aplică doar celor 40 de candidați rămași, nu întregului corpus. Primele cinci fragmente după rerankingul cross-encoder ajung la modelul generativ, care produce răspunsul cu același prompt de grounding ca în varianta Naive.
 
 \subsection{Interfața și fluxul utilizatorului}
 
@@ -269,7 +269,7 @@ Pentru testarea semnificației statistice s-au aplicat două teste pereche pe ce
 
 Validitatea concluziilor depinde de corectitudinea comparației, adică de garanția că singura diferență dintre cele două sisteme este arhitectura de recuperare. Mai multe decizii de proiectare servesc acest scop.
 
-În primul rând, ambele pipeline-uri folosesc același model generativ (Qwen3-8B), același model de embedding (all-MiniLM-L6-v2) și aceeași bază de cunoștințe, indexată o singură dată. Diferă doar etapa de recuperare. În al doilea rând, ambele sisteme primesc exact același prompt de sistem, cu aceeași constrângere de groundare, astfel încât diferențele de comportament la generare să nu provină din instrucțiuni diferite. În al treilea rând, ambele sisteme sunt evaluate pe exact aceleași întrebări, în aceeași ordine, pentru fiecare seed, ceea ce permite aplicarea testelor statistice pereche.
+În primul rând, ambele pipeline-uri folosesc același model generativ (Qwen3-8B), același model de embedding (all-MiniLM-L6-v2) și aceeași bază de cunoștințe, indexată o singură dată. Diferă doar etapa de recuperare. În al doilea rând, ambele sisteme primesc exact același prompt de sistem, cu aceeași constrângere de grounding, astfel încât diferențele de comportament la generare să nu provină din instrucțiuni diferite. În al treilea rând, ambele sisteme sunt evaluate pe exact aceleași întrebări, în aceeași ordine, pentru fiecare seed, ceea ce permite aplicarea testelor statistice pereche.
 
 În fine, înainte de fiecare rulare de evaluare, modelele și indexul BM25 sunt încărcate printr-o etapă de încălzire, astfel încât timpii de latență măsurați să nu includă costul unic de inițializare. Aceste măsuri reduc riscul ca diferențele observate să fie atribuite unor factori colaterali, nu arhitecturii de recuperare.
 
@@ -392,7 +392,7 @@ Recuperarea hibridă (densă + BM25) are un avantaj clar pe interogările cu ter
 
 Explicația principală este că SQuAD a fost conceput ca benchmark pentru citire extractivă, unde modelul ar trebui să extragă textual un fragment din pasaj. Modelele generative moderne tind să parafrazeze răspunsul mai degrabă decât să îl reproducă cuvânt cu cuvânt, ceea ce scade Answer F1 față de valoarea maximă posibilă, chiar dacă răspunsul este corect semantic. O a doua explicație este că Naive RAG recuperează corect fragmentul în 83,5\% din cazuri, ceea ce înseamnă că modelul generativ primea oricum contextul corect pentru cea mai mare parte a întrebărilor. Câștigul din Advanced RAG vine tocmai din cazurile dificile, adică interogările cu termeni rari sau cu răspunsuri scurte greu de localizat prin similaritate semantică pură, unde generarea oricum eșuează mai des.
 
-\subsection{Constrângerea de groundare și refuzurile}
+\subsection{Constrângerea de grounding și refuzurile}
 
 Ambele pipeline-uri folosesc un prompt de sistem care constrânge modelul să răspundă exclusiv din contextul furnizat și să refuze explicit dacă informația lipsește. Exact promptul de refuz este: \textit{``The provided context does not contain enough information to answer this question.''} Această decizie de proiectare este direct motivată de principiul fidelității contextuale descris în~\cite{asai2023self}: un sistem care preferă să refuze decât să inventeze este mai fiabil decât unul care generează răspunsuri plauzibile dar incorecte.
 
