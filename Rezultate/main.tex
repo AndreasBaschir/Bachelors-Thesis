@@ -45,7 +45,7 @@ Figura~\ref{fig:offline} prezintă faza offline. Setul de date este încărcat, 
 
 Pe partea funcțională, sistemul trebuie să implementeze două pipeline-uri RAG complete, de la interogare la răspuns, peste aceeași bază de cunoștințe. Trebuie să existe o interfață care permite interogarea simultană a ambelor sisteme și afișarea răspunsurilor una lângă alta, astfel încât diferențele să fie vizibile direct. În plus, este nevoie de un modul de evaluare automată care rulează cele două sisteme pe un set de întrebări și calculează metrici comparative.
 
-Pe partea nefuncțională, comparația trebuie să fie corectă, ceea ce înseamnă că singura variabilă între cele două sisteme este arhitectura de recuperare. Rezultatele trebuie să fie reproducibile, de unde și rularea locală și fixarea seed-urilor în evaluare. Sistemul trebuie să ruleze pe o singură placă grafică de consum, fără infrastructură distribuită. În fine, codul trebuie organizat modular, cu pipeline-urile separate de interfață și de modulul de evaluare, pentru ca fiecare componentă să poată fi modificată independent.
+Pe partea nefuncțională, comparația trebuie să fie corectă, ceea ce înseamnă că singura variabilă între cele două sisteme este arhitectura de recuperare. Rezultatele trebuie să fie reproducibile, motiv pentru care evaluarea rulează local, cu seed-uri fixate. Sistemul trebuie să ruleze pe o singură placă grafică de consum, fără infrastructură distribuită. În fine, codul trebuie organizat modular, cu pipeline-urile separate de interfață și de modulul de evaluare, pentru ca fiecare componentă să poată fi modificată independent.
 
 \subsection{Tehnologii utilizate}
 
@@ -201,7 +201,7 @@ A treia etapă fuzionează cele șase liste de rezultate prin Reciprocal Rank Fu
 \end{equation}
 unde $r_l(d)$ este rangul fragmentului $d$ în lista $l$, iar $k=60$. Constanta $k$ atenuează influența pozițiilor de top, astfel încât un fragment aflat constant pe locuri bune în mai multe liste să fie favorizat față de unul aflat pe primul loc într-o singură listă. După fuziune se păstrează primii 40 de candidați.
 
-A patra etapă este rerankingul. Cross-encoderul \texttt{ms-marco-MiniLM-L-6-v2} primește perechea (interogare, fragment) și produce un scor de relevanță. Spre deosebire de modelul de embedding, care codifică separat interogarea și fragmentul, cross-encoderul le procesează împreună, ceea ce dă o estimare mai precisă a relevanței, cu prețul unui cost de calcul mai mare. Din acest motiv el se aplică doar celor 40 de candidați rămași, nu întregului corpus. Primele cinci fragmente după rerankingul cross-encoder ajung la modelul generativ, care produce răspunsul cu același prompt de groundare ca în varianta Naive.
+A patra etapă este rerankingul. Cross-encoderul \texttt{ms-marco-MiniLM-L-6-v2} primește perechea (interogare, fragment) și produce un scor de relevanță. Spre deosebire de modelul de embedding, care codifică separat interogarea și fragmentul, cross-encoderul le procesează împreună, ceea ce dă o estimare mai precisă a relevanței, dar cu un cost de calcul mai mare. Din acest motiv el se aplică doar celor 40 de candidați rămași, nu întregului corpus. Primele cinci fragmente după rerankingul cross-encoder ajung la modelul generativ, care produce răspunsul cu același prompt de groundare ca în varianta Naive.
 
 \subsection{Interfața și fluxul utilizatorului}
 
@@ -225,13 +225,23 @@ Legătura dintre interfață și arhitectura RAG este directă. Coloana din stâ
 \label{fig:ui-exemplu}
 \end{figure}
 
+\subsection{Modulul de evaluare}
+
+Pe lângă cele două pipeline-uri și interfață, demonstratorul include un modul de evaluare automată, implementat în scriptul \texttt{benchmark.py}. Rolul lui este să ruleze ambele sisteme pe același eșantion de întrebări și să producă metricile, testele statistice și figurile raportate în acest capitol, fără intervenție manuală.
+
+Modulul funcționează în bucle imbricate: pentru fiecare seed se extrage un eșantion de întrebări din SQuAD, iar pentru fiecare întrebare se rulează ambele pipeline-uri și se înregistrează fragmentele recuperate, timpul de procesare și, opțional, răspunsul generat. Evaluarea răspunsurilor este opțională tocmai pentru că generarea este pasul cel mai lent: metricile de recuperare se pot calcula rapid și separat, fără apeluri la modelul generativ.
+
+O decizie de implementare care s-a dovedit utilă este salvarea de checkpoint: după fiecare seed, rezultatele parțiale se scriu pe disc printr-o înlocuire atomică de fișier, astfel încât o întrerupere în timpul rulării (care poate dura ore cu generarea activată) să nu piardă seed-urile deja terminate. O alta privește tratarea refuzurilor la evaluarea cu RAGAS: răspunsurile în care sistemul declară explicit că informația lipsește din context sunt excluse de la metrica de relevanță, deoarece un refuz corect ar fi altfel penalizat ca un răspuns nerelevant, ceea ce ar distorsiona comparația în defavoarea sistemului mai prudent.
+
+La final, modulul agregă rezultatele pe toate seed-urile, calculează media și deviația standard pentru fiecare metrică, rulează testele de semnificație pe perechile de rezultate și generează automat figurile comparative în format PDF și PNG, gata de inclus în lucrare.
+
 \subsection{Procesul de dezvoltare}
 
 Implementarea a pornit cu varianta minimă funcțională: indexarea datelor SQuAD în ChromaDB și un pipeline Naive conectat la interfața Streamlit. Abia după ce baseline-ul funcționa de la cap la coadă au fost adăugate, una câte una, componentele Advanced RAG, ca să se poată vedea la fiecare pas ce aduce fiecare optimizare.
 
 Prima extensie a fost recuperarea sparse cu BM25~\cite{robertson2009bm25}. Inițial s-a folosit biblioteca \texttt{rank\_bm25}, dar aceasta a fost înlocuită cu \texttt{bm25s}, mult mai rapidă prin tokenizare în loturi și indexare optimizată. Pentru că reconstruirea indexului la fiecare pornire era costisitoare, indexul se calculează o singură dată și se salvează pe disc.
 
-Configurarea cross-encoderului a cerut câteva încercări. Au fost testate mai multe modele de reranking, inclusiv o variantă mai mare la care s-a renunțat în favoarea lui \texttt{ms-marco-MiniLM-L-6-v2}, care oferă un compromis bun între precizie și viteză. Pool-ul de candidați trimiși la reranking a crescut de la 20 la 40 pe parcurs, după ce s-a observat că un pool mai mic tăia uneori fragmentele relevante înainte ca cross-encoderul să le poată evalua.
+Configurarea cross-encoderului a cerut câteva încercări. Au fost testate mai multe modele de reranking, inclusiv o variantă mai mare, abandonată în favoarea lui \texttt{ms-marco-MiniLM-L-6-v2}, care oferă un compromis bun între precizie și viteză. Pool-ul de candidați trimiși la reranking a crescut de la 20 la 40 pe parcurs, după ce s-a observat că un pool mai mic tăia uneori fragmentele relevante înainte ca cross-encoderul să le poată evalua.
 
 Expansiunea interogărilor a trecut și ea prin ajustări. Modelul de reformulare a fost schimbat pe Qwen3-1.7B, iar recuperările pentru variantele de interogare au fost paralelizate, pentru că rularea lor secvențială dubla timpul de răspuns. Toate aceste decizii sunt vizibile în istoricul de versiuni al proiectului, unde fiecare modificare corespunde unui pas în rafinarea pipeline-ului.
 

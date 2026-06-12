@@ -32,7 +32,7 @@ Fenomenul de „halucinație” reprezintă un răspuns aparent bine formulat, d
 Retrieval-Augmented Generation (RAG) este un tip de arhitectură de sistem de inteligență artificială care combină recuperarea informației relevante din surse externe cu capacitatea de generarea a LLM-urilor. În contextul unui sistem RAG, documentele relevante sunt recuperate dintr-o sursă externă de date, încorporate în contextul LLM-ului, iar în final, se generează un răspuns. Aceasta adresează ambele probleme simultan:
 
 \begin{enumerate}
-    \item Furnizează informația relevantă pentru un context factual corect, reducând astfel halucinațiile;
+    \item Furnizează informația necesară unui context factual corect, reducând astfel halucinațiile;
     \item Permite modificarea cunoștințelor și extensia contextului fără fine-tuning sau reantrenare.
 \end{enumerate}
 
@@ -104,7 +104,7 @@ Al doilea criteriu privește cât de strâns sunt legate cele două componente. 
 
 \textbf{3. Tipul sursei de cunoștințe}
 
-Al treilea criteriu privește forma datelor din care se recuperează. Sursele nestructurate sunt abundente și ușor de adunat, dar necesită indexare semantică, iar sursele structurate modelează explicit relațiile, ceea ce le face deosebit de potrivite pentru extragerea relațiilor între entități.
+Al treilea criteriu privește forma datelor din care se recuperează. Sursele nestructurate sunt abundente și ușor de adunat, dar necesită indexare semantică, iar sursele structurate modelează explicit relațiile, ceea ce le face foarte potrivite pentru extragerea relațiilor între entități.
 
 \begin{itemize}
     \item \textbf{Nestructurată}: Documente text din diverse surse precum site-uri web (ex. articole Wikipedia), PDF-uri, documente Word. Pentru a putea fi procesate, necesită indexare și analiză semantică.
@@ -186,15 +186,15 @@ Un sistem RAG funcționează în două faze: o fază offline de indexare și o f
 
 \textbf{Interogarea} reprezintă nevoia de informație a utilizatorului și este punctul de pornire al fluxului online. Rolul ei este dublu: pe de o parte declanșează recuperarea, pe de altă parte stabilește criteriul față de care se măsoară relevanța fragmentelor. În formele de bază, textul interogării este transmis direct mecanismului de recuperare, fără prelucrare.
 
-Sistemele avansate aplică mai întâi transformări ale interogării: reformulare semantică, extindere cu termeni sinonimi sau descompunere în sub-interogări, pentru a crește acoperirea și a reduce sensibilitatea față de formulări ambigue~\cite{gao2024retrievalaugmentedgenerationlargelanguage}. Pentru extragerea relațiilor, formularea interogării contează în mod special, deoarece aceeași relație poate fi exprimată în multe feluri, iar o singură formulare poate rata documentele care folosesc alți termeni.
+Sistemele avansate aplică mai întâi transformări ale interogării: reformulare semantică, extindere cu termeni sinonimi sau descompunere în sub-interogări, pentru a crește acoperirea și a reduce sensibilitatea față de formulări ambigue~\cite{gao2024retrievalaugmentedgenerationlargelanguage}. Pentru extragerea relațiilor, formularea interogării contează mult, deoarece aceeași relație poate fi exprimată în multe feluri, iar o singură formulare poate rata documentele care folosesc alți termeni.
 
 \textbf{Baza de cunoștințe} este sursa externă din care se extrage informația și determină, prin conținutul ei, ce poate și ce nu poate ști sistemul. Spre deosebire de cunoștințele parametrice ale modelului, baza de cunoștințe poate fi actualizată oricând, fără reantrenare. Documentele trec printr-o etapă de indexare offline: sunt împărțite în fragmente (eng. \textit{chunks}), codificate cu un model de reprezentare vectorială bazat pe arhitectura transformer~\cite{vaswani2017attention} și stocate într-o bază de date vectorială~\cite{karpukhin2020dpr}.
 
-Strategia de fragmentare influențează direct calitatea recuperării: fragmentele prea scurte pierd contextul necesar pentru identificarea relațiilor între entități, iar cele prea lungi diluează semnalul relevant. Calitatea bazei de cunoștințe pune o limită superioară asupra performanței întregului sistem, deoarece o relație care nu apare în niciun document nu poate fi recuperată, oricât de bun ar fi mecanismul de recuperare.
+Strategia de fragmentare influențează direct calitatea recuperării: fragmentele prea scurte pierd contextul necesar pentru identificarea relațiilor între entități, iar cele prea lungi diluează semnalul relevant. Calitatea bazei de cunoștințe limitează performanța întregului sistem, deoarece o relație care nu apare în niciun document nu poate fi recuperată, oricât de bun ar fi mecanismul de recuperare.
 
 \textbf{Mecanismul de recuperare} punctează fragmentele din baza vectorială în raport cu interogarea și returnează primele $k$ rezultate. Rolul lui este de a aduce în fața modelului generativ exact dovezile necesare, nici prea puține, încât să rateze informația, nici prea multe, încât să o îngroape în zgomot. Sistemele dense calculează similaritatea cosinus între vectorul interogării și vectorii fragmentelor~\cite{karpukhin2020dpr}, captând asemănarea de sens. Sistemele sparse aplică potrivire ponderată de termeni, BM25 reprezentând standardul din domeniu~\cite{robertson2009bm25}, captând potrivirea lexicală exactă.
 
-Sistemele hibride combină scorurile dense și sparse prin Reciprocal Rank Fusion (RRF)~\cite{cormack2009rrf}, pentru a beneficia de ambele tipuri de potrivire. Opțional, un model de reranking de tip cross-encoder rafinează ordinea inițială, reevaluând fiecare pereche interogare-fragment cu o precizie mai mare decât similaritatea vectorială. Acest pas suplimentar este deosebit de util pentru extragerea relațiilor, unde fragmentul corect trebuie să conțină simultan ambele entități și formularea relației.
+Sistemele hibride combină scorurile dense și sparse prin Reciprocal Rank Fusion (RRF)~\cite{cormack2009rrf}, pentru a beneficia de ambele tipuri de potrivire. Opțional, un model de reranking de tip cross-encoder rafinează ordinea inițială, reevaluând fiecare pereche interogare-fragment cu o precizie mai mare decât similaritatea vectorială. Acest pas suplimentar este foarte util pentru extragerea relațiilor, unde fragmentul corect trebuie să conțină simultan ambele entități și formularea relației.
 
 \textbf{Modelul generativ} primește contextul augmentat, format din interogarea originală și fragmentele recuperate, și produce răspunsul final~\cite{lewis2020rag}. Rolul lui nu este de a ști răspunsul, ci de a-l sintetiza din dovezile furnizate: identifică în fragmente informația relevantă, o leagă de întrebare și o exprimă coerent. În cazul extragerii relațiilor, modelul localizează în context legătura dintre entități și o formulează ca răspuns.
 
@@ -204,7 +204,7 @@ Arhitecturile orientate spre fidelitate constrâng explicit modelul să fundamen
 
 Figura~\ref{fig:rag-arch} ilustrează cele două trasee ale fluxului de date. Offline, documentele sunt procesate o singură dată: fragmentate, codificate și stocate în baza vectorială. Online, fiecare interogare parcurge procesarea interogării, recuperarea fragmentelor, augmentarea contextului și generarea răspunsului.
 
-Separarea în două faze are o motivație practică. Indexarea este o operație costisitoare, deoarece presupune codificarea întregului corpus, dar trebuie făcută o singură dată și poate fi refolosită pentru orice număr de interogări. Inferența, în schimb, trebuie să fie rapidă, deoarece se execută la fiecare cerere a utilizatorului. Această asimetrie justifică efortul de a optimiza indexarea offline, chiar dacă durează mult, în favoarea unei recuperări online cât mai eficiente. Atunci când corpusul se schimbă, doar documentele noi trebuie codificate și adăugate, fără a reface întregul index.
+Separarea în două faze are o motivație practică. Indexarea este o operație costisitoare, deoarece presupune codificarea întregului corpus, dar trebuie făcută o singură dată și poate fi refolosită pentru orice număr de interogări. Inferența, în schimb, trebuie să fie rapidă, deoarece se execută la fiecare cerere a utilizatorului. De aceea merită să optimizăm indexarea offline, chiar dacă durează mult, pentru ca recuperarea online să fie cât mai rapidă. Atunci când corpusul se schimbă, doar documentele noi trebuie codificate și adăugate, fără a reface întregul index.
 
 \begin{figure}[htbp]
     \centering
@@ -238,7 +238,7 @@ Separarea în două faze are o motivație practică. Indexarea este o operație 
 
 \subsection{Exemplu de flux pentru extragerea relațiilor}
 
-Un exemplu concret clarifică rolul fiecărei componente. Să presupunem interogarea „Unde s-a născut Marie Curie?”, pentru care răspunsul corect este relația $(\text{Marie Curie}, \text{loc de naștere}, \text{Varșovia})$.
+Un exemplu concret clarifică rolul fiecărei componente. Să presupunem interogarea „Unde s-a născut Marie Curie?”, pentru care răspunsul corect este tripletul (Marie Curie, loc de naștere, Varșovia).
 
 În faza online, interogarea este mai întâi codificată într-un vector. Mecanismul de recuperare caută în baza vectorială fragmentele cele mai apropiate semantic și returnează, de exemplu, un pasaj din articolul Wikipedia despre Marie Curie care conține propoziția „Maria Skłodowska s-a născut la Varșovia în 1867”. Acest fragment este introdus în contextul modelului generativ împreună cu interogarea originală. Modelul generativ identifică în fragment legătura dintre entitatea-subiect și locul de naștere și produce răspunsul fundamentat pe dovada recuperată, nu pe cunoștințele sale interne.
 
@@ -248,7 +248,7 @@ Acest exemplu evidențiază două aspecte importante pentru extragerea relațiil
 
 Fragmentarea (eng. \textit{chunking}) este pasul prin care documentele sunt împărțite în unități indexabile, iar alegerea strategiei influențează direct calitatea recuperării. Există câteva abordări uzuale.
 
-Fragmentarea de lungime fixă împarte textul în bucăți de un număr fix de tokenuri sau caractere, eventual cu o suprapunere între fragmente consecutive pentru a nu pierde contextul de la graniță. Este simplă și rapidă, dar poate tăia o propoziție sau o relație în două. Fragmentarea pe granițe naturale, la nivel de propoziție sau paragraf, respectă structura textului și păstrează relațiile intacte în interiorul unui fragment, dar produce fragmente de lungimi inegale. Fragmentarea semantică grupează propozițiile înrudite pe baza similarității de reprezentare, încercând să mențină împreună informația coerentă tematic, cu prețul unui cost de calcul mai mare la indexare.
+Fragmentarea de lungime fixă împarte textul în bucăți de un număr fix de tokenuri sau caractere, eventual cu o suprapunere între fragmente consecutive pentru a nu pierde contextul de la graniță. Este simplă și rapidă, dar poate tăia o propoziție sau o relație în două. Fragmentarea pe granițe naturale, la nivel de propoziție sau paragraf, respectă structura textului și păstrează relațiile intacte în interiorul unui fragment, dar produce fragmente de lungimi inegale. Fragmentarea semantică grupează propozițiile înrudite pe baza similarității de reprezentare, încercând să mențină împreună informația coerentă tematic, dar cu un cost de calcul mai mare la indexare.
 
 Compromisul fundamental este între specificitate și context~\cite{gao2024retrievalaugmentedgenerationlargelanguage}. Fragmentele scurte sunt specifice, dar pot pierde contextul necesar pentru a identifica o relație care se întinde pe mai multe propoziții. Fragmentele lungi păstrează contextul, dar diluează semnalul relevant și introduc zgomot în promptul modelului generativ. Pentru extragerea relațiilor, fragmentul ideal conține ambele entități și formularea relației dintre ele, ceea ce favorizează fragmentarea pe granițe naturale, la nivel de paragraf. Demonstratorul din această lucrare folosește paragraful ca unitate de fragmentare.
 
@@ -274,7 +274,7 @@ Primul compromis privește dimensiunea fragmentelor. Fragmentele mici sunt speci
 
 Al doilea compromis privește numărul de fragmente recuperate, parametrul $k$. Un $k$ mic riscă să rateze informația relevantă, în timp ce un $k$ mare introduce pasaje irelevante care pot induce în eroare modelul generativ~\cite{jin2024long}. Creșterea lui $k$ nu îmbunătățește monoton performanța, ci atinge un punct dincolo de care zgomotul depășește beneficiul acoperirii.
 
-Al treilea compromis privește alegerea între recuperarea densă și cea rară. Recuperarea densă captează sensul, dar ratează termenii rari; recuperarea rară captează potrivirile lexicale exacte, dar nu înțelege sinonimele. Recuperarea hibridă încearcă să le combine, cu prețul unei complexități și al unui cost de calcul mai mari.
+Al treilea compromis privește alegerea între recuperarea densă și cea rară. Recuperarea densă captează sensul, dar ratează termenii rari; recuperarea rară captează potrivirile lexicale exacte, dar nu înțelege sinonimele. Recuperarea hibridă încearcă să le combine, dar cu o complexitate și un cost de calcul mai mari.
 
 Al patrulea compromis, poate cel mai vizibil în practică, este între calitate și latență. Fiecare etapă de optimizare, de la expansiunea interogărilor la reranking, îmbunătățește calitatea recuperării, dar adaugă timp de procesare. În aplicațiile interactive, unde utilizatorul așteaptă un răspuns, acest compromis devine o constrângere de proiectare, nu doar o opțiune. Partea experimentală a lucrării măsoară direct acest compromis pe cele două arhitecturi comparate.
 
@@ -294,13 +294,13 @@ Advanced RAG adaugă optimizări pre-recuperare și post-recuperare față de va
 
 Avantajul Advanced RAG este creșterea calității recuperării: recuperarea hibridă prinde atât potrivirile semantice, cât și pe cele lexicale, iar rerankingul așază fragmentele cu adevărat relevante pe primele poziții. Dezavantajul este costul: fiecare optimizare adaugă latență, iar expansiunea interogărilor presupune un apel suplimentar la un model de limbaj, ceea ce poate crește timpul de răspuns de câteva ori față de varianta de bază, după cum arată și partea experimentală a acestei lucrări.
 
-Pentru extragerea relațiilor, optimizările post-recuperare sunt relevante în mod direct: identificarea corectă a unei relații necesită fragmente care conțin simultan ambele mențiuni de entitate și indiciile lexicali ai relației. Reranking-ul crește șansa ca aceste fragmente să ajungă în contextul modelului generativ. Aceasta este arhitectura pe care lucrarea de față o implementează și evaluează în partea experimentală.
+Pentru extragerea relațiilor, optimizările post-recuperare sunt direct relevante: identificarea corectă a unei relații necesită fragmente care conțin simultan ambele mențiuni de entitate și indiciile lexicali ai relației. Reranking-ul crește șansa ca aceste fragmente să ajungă în contextul modelului generativ. Aceasta este arhitectura pe care lucrarea de față o implementează și evaluează în partea experimentală.
 
 \subsection{Recuperarea densă: DPR și ColBERT}
 
 Recuperarea densă stă la baza majorității sistemelor RAG moderne, inclusiv a celui implementat în această lucrare. Dense Passage Retrieval (DPR)~\cite{karpukhin2020dpr} folosește două encodere separate, unul pentru interogare și unul pentru pasaje, antrenate astfel încât perechile relevante să aibă vectori apropiați în spațiul de reprezentare. La recuperare, interogarea este codificată o singură dată, iar pasajul cu cea mai mare similaritate cosinus este returnat. Avantajul față de metodele lexicale precum BM25 este captarea sinonimiei și a parafrazării: DPR poate lega „loc de naștere” de „s-a născut la” chiar dacă termenii nu coincid. Limitarea este că un singur vector pentru întregul pasaj poate dilua termenii rari sau specifici.
 
-ColBERT~\cite{khattab2020colbert} rafinează această idee prin interacțiune târzie (eng. \textit{late interaction}). În loc de un singur vector per pasaj, ColBERT păstrează câte un vector pentru fiecare token și calculează relevanța prin suma similarităților maxime dintre tokenurile interogării și cele ale pasajului. Această granularitate fină îmbunătățește precizia, mai ales pe interogări cu termeni specifici, dar crește costul de stocare și de calcul, deoarece indexul trebuie să rețină reprezentări la nivel de token. Pentru extragerea relațiilor, interacțiunea târzie ajută la potrivirea precisă a mențiunilor de entitate, care sunt adesea termeni rari.
+ColBERT~\cite{khattab2020colbert} rafinează această idee prin interacțiune târzie (eng. \textit{late interaction}). În loc de un singur vector per pasaj, ColBERT păstrează câte un vector pentru fiecare token și calculează relevanța prin suma similarităților maxime dintre tokenurile interogării și cele ale pasajului. Acest nivel fin de detaliu îmbunătățește precizia, mai ales pe interogări cu termeni specifici, dar crește costul de stocare și de calcul, deoarece indexul trebuie să rețină reprezentări la nivel de token. Pentru extragerea relațiilor, interacțiunea târzie ajută la potrivirea precisă a mențiunilor de entitate, care sunt adesea termeni rari.
 
 \subsection{Hypothetical Document Embeddings (HyDE)}
 
@@ -320,7 +320,7 @@ REALM~\cite{guu2020realm} integrează recuperarea chiar în etapa de pre-antrena
 
 Fusion-in-Decoder (FiD)~\cite{izacard2021fid} codifică fiecare pasaj recuperat independent prin encoder, dar realizează fuziunea la nivelul decoderului. Astfel, modelul poate agrega dovezi din surse multiple fără a sufoca encoderele cu un context prea lung. RETRO~\cite{borgeaud2022retro} extinde această idee la scara corpusurilor de zeci de trilioane de tokenuri, fără a crește proporțional numărul de parametri ai modelului, obținând eficiență parametrică pe seama unei infrastructuri mai complexe.
 
-Pentru extragerea relațiilor, mecanismul de fuziune din FiD este deosebit de relevant: o relație poate fi susținută de dovezi distribuite în mai multe pasaje, iar fuziunea la nivelul decoderului permite modelului să combine aceste dovezi fără a fi limitat de lungimea unui singur context. Spre deosebire de concatenarea simplă a fragmentelor, această abordare scalează mai bine cu numărul de pasaje recuperate.
+Pentru extragerea relațiilor, mecanismul de fuziune din FiD contează mult: o relație poate fi susținută de dovezi distribuite în mai multe pasaje, iar fuziunea la nivelul decoderului permite modelului să combine aceste dovezi fără a fi limitat de lungimea unui singur context. Spre deosebire de concatenarea simplă a fragmentelor, această abordare scalează mai bine cu numărul de pasaje recuperate.
 
 Avantajul comun al acestor trei abordări este integrarea strânsă dintre recuperare și model: recuperatorul nu mai este o componentă separată, ci este antrenat împreună cu generatorul, ceea ce îmbunătățește relevanța documentelor aduse. Dezavantajul comun este costul: REALM și RETRO presupun infrastructură de antrenare complexă și corpusuri foarte mari, iar integrarea profundă face aceste sisteme mai greu de modificat sau de înlocuit pe componente decât arhitecturile modulare.
 
@@ -328,7 +328,7 @@ Avantajul comun al acestor trei abordări este integrarea strânsă dintre recup
 
 RAPTOR~\cite{sarthi2024raptor} construiește un arbore de rezumate de jos în sus: fragmentele de text sunt grupate în clustere, rezumate, iar procesul se repetă recursiv, generând niveluri de abstractizare din ce în ce mai înalte. La inferență, recuperarea operează pe acest arbore și poate agrega informații de la mai multe niveluri de abstractizare simultan.
 
-Metoda obține rezultate bune pe sarcini care necesită raționament distribuit pe mai multe documente~\cite{sarthi2024raptor}. Avantajul față de recuperarea standard este că furnizează modelului generativ atât detalii de granularitate fină, cât și context global. Dezavantajul constă în costul de construire și actualizare a arborelui. Pentru extragerea relațiilor, nivelurile de rezumat ale arborelui pot ajuta la identificarea relațiilor implicite, care nu apar formulat într-o singură propoziție, ci reies din coroborarea mai multor pasaje rezumate la un nivel superior de abstractizare.
+Metoda obține rezultate bune pe sarcini care necesită raționament distribuit pe mai multe documente~\cite{sarthi2024raptor}. Avantajul față de recuperarea standard este că furnizează modelului generativ atât detalii fine, cât și context global. Dezavantajul constă în costul de construire și actualizare a arborelui. Pentru extragerea relațiilor, nivelurile de rezumat ale arborelui pot ajuta la identificarea relațiilor implicite, care nu apar formulat într-o singură propoziție, ci reies din coroborarea mai multor pasaje rezumate la un nivel superior de abstractizare.
 
 \subsection{Corrective RAG (CRAG)}
 
@@ -336,13 +336,13 @@ CRAG~\cite{yan2024crag} adaugă un evaluator al calității documentelor recuper
 
 Mecanismul de auto-corecție face sistemul mai robust față de recuperările greșite și reduce riscul extragerii unei relații dintr-un context irelevant. CRAG este una dintre primele abordări care tratează explicit eșecul recuperării ca un caz de gestionat, nu ca o excepție rară.
 
-Avantajul principal al CRAG este robustețea: sistemul nu se prăbușește atunci când recuperarea inițială eșuează, ci caută alternative. Limitarea este costul suplimentar al evaluatorului și al recuperărilor corective, care pot dubla timpul de răspuns pe interogările dificile. Pentru extragerea relațiilor, capacitatea de a respinge un context irelevant înainte de generare este deosebit de valoroasă, deoarece o relație extrasă dintr-un fragment greșit este o eroare greu de detectat ulterior.
+Avantajul principal al CRAG este robustețea: sistemul nu se prăbușește atunci când recuperarea inițială eșuează, ci caută alternative. Limitarea este costul suplimentar al evaluatorului și al recuperărilor corective, care pot dubla timpul de răspuns pe interogările dificile. Pentru extragerea relațiilor, capacitatea de a respinge un context irelevant înainte de generare este foarte valoroasă, deoarece o relație extrasă dintr-un fragment greșit este o eroare greu de detectat ulterior.
 
 \subsection{Self-RAG}
 
 Self-RAG~\cite{asai2023self} antrenează un singur model să decidă adaptiv când să recupereze, când să genereze și când să critice propriile răspunsuri, folosind tokenuri speciale de reflecție introduse în vocabularul modelului. Modelul evaluează relevanța fragmentului recuperat și gradul de fundamentare factuală a răspunsului generat înainte de a-l returna utilizatorului.
 
-Față de CRAG, care utilizează un evaluator extern, Self-RAG internalizează întregul proces de evaluare și corecție. Fidelitatea și controlabilitatea cresc~\cite{asai2023self}. Pentru extragerea relațiilor, posibilitatea de a verifica dacă tipul de relație prezis este susținut de dovezile recuperate este utilă în mod direct, deoarece reduce numărul de relații extrase din fragmente slab relevante.
+Față de CRAG, care utilizează un evaluator extern, Self-RAG internalizează întregul proces de evaluare și corecție. Fidelitatea și controlabilitatea cresc~\cite{asai2023self}. Pentru extragerea relațiilor, posibilitatea de a verifica dacă tipul de relație prezis este susținut de dovezile recuperate este direct utilă, deoarece reduce numărul de relații extrase din fragmente slab relevante.
 
 Avantajul Self-RAG este că evaluarea și generarea folosesc același model, fără componente externe de întreținut. Limitarea este că modelul trebuie antrenat special pentru a produce tokenurile de reflecție, ceea ce presupune date de antrenare dedicate și un cost de pregătire mai mare decât în cazul unui pipeline modular. Acest compromis între simplitatea de operare și costul de antrenare este reprezentativ pentru tensiunea dintre arhitecturile integrate și cele modulare discutată în taxonomie.
 
@@ -358,13 +358,13 @@ Avantajul ambelor metode este eficiența adaptivă: resursele de recuperare sunt
 
 GraphRAG~\cite{edge2024graphrag} construiește un graf de cunoștințe din corpus prin extragerea entităților și relațiilor, structurând informația în comunități ierarhice rezumate. Recuperarea operează pe acest graf prin traversarea relațiilor semantice, permițând raționamentul global, nu doar căutarea locală de fragmente similare.
 
-HippoRAG~\cite{gutierrez2024hipporag} integrează un model de limbaj, un graf de cunoștințe și Personalised PageRank: corpusul este transformat într-un graf fără schemă predefinită, iar conceptele din interogare servesc ca noduri de pornire pentru propagarea pe graf. Ambele abordări se înscriu în direcția de cercetare Graph RAG descrisă de Peng et al. (2025)~\cite{peng2025graph}. Avantajul comun este descoperirea relațiilor implicite distribuite în mai multe pasaje, ceea ce le face relevante în mod direct pentru sarcina de extragere a relațiilor. Limitarea comună este costul de construire și actualizare a grafului.
+HippoRAG~\cite{gutierrez2024hipporag} integrează un model de limbaj, un graf de cunoștințe și Personalised PageRank: corpusul este transformat într-un graf fără schemă predefinită, iar conceptele din interogare servesc ca noduri de pornire pentru propagarea pe graf. Ambele abordări se înscriu în direcția de cercetare Graph RAG descrisă de Peng et al. (2025)~\cite{peng2025graph}. Avantajul comun este descoperirea relațiilor implicite distribuite în mai multe pasaje, ceea ce le face direct relevante pentru sarcina de extragere a relațiilor. Limitarea comună este costul de construire și actualizare a grafului.
 
 \subsection{RAG pentru contexte lungi și aplicații specializate}
 
 Creșterea numărului de pasaje recuperate nu garantează îmbunătățirea performanței. Pasajele irelevante din contexte lungi degradează calitatea generării, un fenomen documentat de Jin et al. (2024)~\cite{jin2024long}. Problema selectivității devine la fel de importantă ca problema acoperirii.
 
-Problema integrării contextelor lungi este deosebit de relevantă pentru extragerea relațiilor, unde o relație poate fi susținută de dovezi distribuite în mai multe documente. Pe de o parte, sunt necesare mai multe pasaje pentru a acoperi toate dovezile; pe de altă parte, prea multe pasaje irelevante diluează semnalul. Echilibrul dintre acoperire și selectivitate devine astfel o decizie de proiectare centrală, nu un detaliu de reglaj.
+Problema integrării contextelor lungi este foarte relevantă pentru extragerea relațiilor, unde o relație poate fi susținută de dovezi distribuite în mai multe documente. Pe de o parte, sunt necesare mai multe pasaje pentru a acoperi toate dovezile; pe de altă parte, prea multe pasaje irelevante diluează semnalul. Echilibrul dintre acoperire și selectivitate devine astfel o decizie de proiectare centrală, nu un detaliu de reglaj.
 
 Alte extensii documentate în literatura recentă includ RAG multimodal, care integrează documente text, imagini, audio și video~\cite{mei2025survey}, MMed-RAG pentru modele vizuale din domeniul medical~\cite{xia2024mmed}, RAP pentru personalizarea răspunsurilor în funcție de preferințele utilizatorului~\cite{hao2025rap} și abordări de recuperare din colecții de mii de documente~\cite{chen2025document}. Aceste direcții arată că RAG nu este o singură arhitectură, ci o familie de tehnici care se adaptează la tipul sursei de date și la cerințele aplicației. Pentru extragerea relațiilor din text, varianta relevantă rămâne RAG pe documente text, cu accent pe recuperarea precisă a fragmentelor care conțin entitățile și relația dintre ele.
 
@@ -459,7 +459,7 @@ O fidelitate de 1,0 indică un răspuns complet susținut de dovezile furnizate,
 
 \textbf{Precizia contextului} și \textbf{recuperarea contextului} evaluează calitatea recuperării din perspectiva generării: câte dintre fragmentele recuperate sunt cu adevărat necesare și câte dintre fragmentele necesare au fost recuperate~\cite{es2024ragas}. Aceste metrici sunt centrale pentru sistemele orientate spre fidelitate~\cite{asai2023self}; evaluarea cu RAGAS a demonstratorului din această teză este prevăzută ca extensie a analizei cantitative.
 
-Trăsătura comună a acestor metrici este că folosesc un model de limbaj ca evaluator (eng. \textit{LLM-as-judge}). În loc să compare răspunsul cu o referință fixă, un model de limbaj apreciază dacă afirmațiile din răspuns sunt susținute de context sau dacă răspunsul adresează întrebarea. Avantajul este flexibilitatea: metrica tolerează reformulările și surprinde nuanțe pe care potrivirea de $n$-grame le ratează. Dezavantajul este costul și dependența de calitatea modelului-judecător, care poate la rândul lui greși. Pentru extragerea relațiilor, evaluarea cu model-judecător poate verifica dacă relația exprimată în răspuns este efectiv susținută de fragmentul recuperat, ceea ce o face complementară metricilor clasice bazate pe potrivire exactă.
+Aceste metrici au în comun faptul că folosesc un model de limbaj ca evaluator (eng. \textit{LLM-as-judge}). În loc să compare răspunsul cu o referință fixă, un model de limbaj apreciază dacă afirmațiile din răspuns sunt susținute de context sau dacă răspunsul adresează întrebarea. Avantajul este flexibilitatea: metrica tolerează reformulările și surprinde nuanțe pe care potrivirea de $n$-grame le ratează. Dezavantajul este costul și dependența de calitatea modelului-judecător, care poate la rândul lui greși. Pentru extragerea relațiilor, evaluarea cu model-judecător poate verifica dacă relația exprimată în răspuns este efectiv susținută de fragmentul recuperat, ceea ce o face complementară metricilor clasice bazate pe potrivire exactă.
 
 \subsection{Dificultăți în evaluarea extragerii relațiilor}
 
@@ -469,7 +469,7 @@ Există două dificultăți structurale. Prima este distribuția dezechilibrată
 
 Metricile de fidelitate nu reflectă direct corectitudinea tipului de relație extras: un sistem poate fi fidel față de contextul recuperat, dar contextul însuși poate conține relații ambigue sau greșit formulate. Prin urmare, evaluarea completă a unui sistem RAG pentru extragerea relațiilor necesită atât metrici de fidelitate, cât și metrici specifice extragerii.
 
-O dificultate suplimentară ține de granularitatea evaluării. O relație poate fi corectă ca tip, dar greșită ca argumente, sau corectă ca argumente, dar greșită ca direcție (de exemplu, „X este autorul lui Y” față de „Y este autorul lui X”). O metrică binară care marchează relația ca fiind corectă sau greșită pierde aceste nuanțe. De aceea, evaluările riguroase raportează separat performanța pe identificarea entităților, pe clasificarea tipului de relație și pe direcția relației, oferind o imagine mai detaliată a punctelor slabe ale sistemului.
+O dificultate suplimentară ține de nivelul de detaliu al evaluării. O relație poate fi corectă ca tip, dar greșită ca argumente, sau corectă ca argumente, dar greșită ca direcție (de exemplu, „X este autorul lui Y” față de „Y este autorul lui X”). O metrică binară care marchează relația ca fiind corectă sau greșită pierde aceste nuanțe. De aceea, evaluările riguroase raportează separat performanța pe identificarea entităților, pe clasificarea tipului de relație și pe direcția relației, ceea ce oferă o imagine mai detaliată a punctelor slabe ale sistemului.
 
 \section{Baze de date}
 
@@ -526,7 +526,7 @@ Re-DocRED & Extragere relații & Document & Corectare false negative \\
 
 Alegerea setului de date pentru evaluare depinde de ceea ce se dorește măsurat. Pentru a valida recuperarea și răspunsul la întrebări, seturile de tip QA precum SQuAD sunt potrivite, deoarece răspunsul este un fragment cu sursă cunoscută, ceea ce permite o verificare automată și obiectivă. Pentru a măsura direct extragerea relațiilor, sunt necesare seturi cu triplete adnotate, precum T-REx sau DocRED, unde se poate verifica dacă sistemul identifică legătura corectă dintre două entități.
 
-În această lucrare, validarea inițială folosește SQuAD, tocmai pentru proprietatea de a permite o măsurare precisă și reproductibilă a recuperării, fără a depinde de un model-judecător. Evaluarea pe extragerea relațiilor, pe seturi de tip T-REx, constituie pasul următor: arhitectura validată pe regăsire și răspuns la întrebări este transferată pe sarcina-țintă, unde adnotările sub formă de triplete permit o evaluare directă a relațiilor extrase.
+În această lucrare, validarea inițială folosește SQuAD, tocmai pentru că permite o măsurare precisă și reproductibilă a recuperării, fără a depinde de un model-judecător. Evaluarea pe extragerea relațiilor, pe seturi de tip T-REx, este pasul următor: arhitectura validată pe regăsire și răspuns la întrebări este transferată pe sarcina-țintă, unde adnotările sub formă de triplete permit o evaluare directă a relațiilor extrase.
 
 \section{Limitări și provocări}
 
@@ -536,7 +536,7 @@ Alegerea setului de date pentru evaluare depinde de ceea ce se dorește măsurat
 
 \textbf{Limitări ale datelor și metricilor.} Seturile de date pentru extragerea relațiilor au distribuții dezechilibrate și conțin false negative~\cite{tan2022redocred}. Metricile de fidelitate nu reflectă direct corectitudinea tipului de relație extras~\cite{es2024ragas}. Construirea de seturi de date de calitate la nivel de document este costisitoare și lentă.
 
-\textbf{Dificultăți în extragerea relațiilor.} Identificarea unei relații necesită adesea agregarea dovezilor din mai multe propoziții sau documente, ceea ce presupune un raționament inter-propoziție dificil de realizat într-un singur pas de recuperare~\cite{yao2019docred, edge2024graphrag}. Relațiile implicite, care nu apar formulat explicit în text, reprezintă o provocare suplimentară.
+\textbf{Dificultăți în extragerea relațiilor.} Identificarea unei relații necesită adesea agregarea dovezilor din mai multe propoziții sau documente, ceea ce presupune un raționament inter-propoziție dificil de realizat într-un singur pas de recuperare~\cite{yao2019docred, edge2024graphrag}. Relațiile implicite, care nu apar formulat explicit în text, sunt o provocare suplimentară.
 
 \textbf{Costul computațional.} Indexarea densă, recuperarea hibridă, rerankingul cu cross-encoder și generarea cu LLM-uri sunt toate operații care consumă resurse semnificative~\cite{karpukhin2020dpr, borgeaud2022retro}. Abordările adaptive și active implică recuperare iterativă, cu mai multe apeluri la model pe interogare~\cite{jiang2023flare, jeong2024adaptiverag}. Metodele bazate pe grafuri adaugă costul construirii și actualizării grafului de cunoștințe~\cite{sarthi2024raptor, gutierrez2024hipporag}. În absența unor resurse computaționale ample, aceste cerințe limitează scala la care sistemele pot fi evaluate sau folosite în producție.
 
@@ -546,7 +546,7 @@ Alegerea setului de date pentru evaluare depinde de ceea ce se dorește măsurat
 
 \section{Concluzii}
 
-Capitolul de față a prezentat contextul teoretic al sistemelor RAG aplicate extragerii relațiilor între entități. Au fost discutate limitările cunoștințelor parametrice ale modelelor lingvistice mari~\cite{gao2024retrievalaugmentedgenerationlargelanguage, lewis2020rag} și motivul pentru care augmentarea cu recuperare externă reprezintă o soluție practică, urmată de o taxonomie specifică acestei teze, construită pe criteriile tipului de mecanism de recuperare, al modului de integrare recuperare-generare și al sursei de cunoștințe.
+Capitolul de față a prezentat contextul teoretic al sistemelor RAG aplicate extragerii relațiilor între entități. Au fost discutate limitările cunoștințelor parametrice ale modelelor lingvistice mari~\cite{gao2024retrievalaugmentedgenerationlargelanguage, lewis2020rag} și motivul pentru care augmentarea cu recuperare externă este o soluție practică, urmată de o taxonomie specifică acestei teze, construită pe criteriile tipului de mecanism de recuperare, al modului de integrare recuperare-generare și al sursei de cunoștințe.
 
 Analiza literaturii arată că robustețea sistemelor RAG depinde în primul rând de calitatea recuperării și de capacitatea de a evalua adaptiv dovezile recuperate~\cite{asai2023self, yan2024crag}. Extragerea relațiilor beneficiază cel mai mult de structurile de grafuri de cunoștințe și de abordările cu raționament la nivel de document~\cite{edge2024graphrag, gutierrez2024hipporag, yao2019docred}. Provocările deschise rămân integrarea contextelor lungi~\cite{jin2024long}, limitările metricilor și datelor~\cite{tan2022redocred, es2024ragas} și costul computațional~\cite{borgeaud2022retro}.
 
