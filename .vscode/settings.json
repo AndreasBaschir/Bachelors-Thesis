@@ -1,0 +1,9 @@
+{
+  "latex-workshop.latex.autoClean.run": "onBuilt",
+  "latex-workshop.latex.clean.fileTypes": [
+    "*.aux", "*.bbl", "*.blg", "*.fdb_latexmk", "*.fls",
+    "*.idx", "*.ilg", "*.ind", "*.lof", "*.log", "*.lot",
+    "*.nlo", "*.out", "*.synctex.gz", "*.toc", "*.thm", "*.dvi"
+  ],
+  "latex-workshop.latex.clean.subfolder.enabled": true
+}

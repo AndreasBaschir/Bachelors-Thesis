@@ -1,0 +1,36 @@
+\chapter*{Concluzii}
+\addcontentsline{toc}{chapter}{Concluzii}
+
+\section*{Rezultate obținute}
+
+Lucrarea a urmărit două obiective paralele: un studiu al literaturii de specialitate privind sistemele de tip Retrieval-Augmented Generation (RAG) și implementarea unui demonstrator care compară o arhitectură de bază cu una avansată pe un set de date public.
+
+Din studiul de literatură (Capitolul 1) au reieșit câteva concluzii clare. Problema fundamentală pe care o adresează RAG rămâne aceeași ca la apariția termenului în 2020~\cite{lewis2020rag}: modelele lingvistice mari au cunoștințe fixate la momentul antrenării și generează răspunsuri incorecte atunci când nu dețin informația solicitată. RAG rezolvă această limitare nu prin reantrenare, ci prin recuperarea documentelor relevante la momentul interogării și condiționarea generării pe aceste documente. Diversitatea abordărilor din literatură, de la Naive RAG la arhitecturi modulare și grafuri de cunoștințe~\cite{gao2024retrievalaugmentedgenerationlargelanguage,peng2025graph}, reflectă că nu există o soluție universală: alegerea arhitecturii depinde de tipul sursei de date, de latența acceptabilă și de natura sarcinii.
+
+Studiul a identificat că metodele de recuperare hibridă (densă + BM25~\cite{robertson2009bm25}) și reranking-ul cu cross-encoder aduc cele mai consistente îmbunătățiri față de recuperarea densă pură, în special pe interogări cu termeni rari sau numerici. Metodele adaptive precum Self-RAG~\cite{asai2023self} și CRAG~\cite{yan2024crag} adaugă un nivel de auto-evaluare a calității recuperării, reducând halucinațiile cauzate de documente irelevante. Pentru extragerea relațiilor între entități, abordările bazate pe grafuri de cunoștințe~\cite{edge2024graphrag} sunt cele mai potrivite structural, deoarece relațiile sunt reprezentate explicit și pot fi traversate direct.
+
+Din evaluarea experimentală (Capitolul 2) rezultatele arată că Advanced RAG depășește Naive RAG pe toate metricile de calitate, cu diferențe semnificative statistic ($p \ll 0{,}05$ în toate testele). Context Recall@5 a crescut de la 83,5\% la 95,5\% (+14,4 puncte procentuale), MRR de la 0,719 la 0,904 (+25,7 puncte), iar Exact Match de la 64,2\% la 74,5\% (+10,4 puncte). Testul McNemar pentru Context Recall a arătat că există 74 de întrebări unde Advanced RAG recuperează fragmentul corect iar Naive RAG nu, față de doar 2 în situația inversă, un raport de 37:1 în favoarea arhitecturii avansate.
+
+Costul acestor îmbunătățiri este latența: Advanced RAG necesită ~770 ms per interogare față de ~16 ms pentru Naive RAG, o diferență de aproximativ 50 de ori. Cea mai mare parte a acestui overhead provine din apelul LLM pentru expansiunea interogărilor. În aplicații unde latența de recuperare poate fi ascunsă parțial de latența de generare (care durează oricum câteva secunde pentru modele de 8B parametri), compromisul este acceptabil. Îmbunătățirile la Answer F1 au fost mai modeste (7,3\% relativ), ceea ce este de așteptat: SQuAD este un benchmark extractiv, iar modelele generative modifcă formularea răspunsului chiar și atunci când contextul corect este disponibil.
+
+\section*{Contribuții originale}
+
+Contribuția principală a lucrării este demonstratorul implementat, disponibil ca proiect open-source, care compară Naive RAG și Advanced RAG pe același set de date și același model lingvistic, izolând contribuția etapelor de recuperare. Sistemul rulează local prin Ollama și ChromaDB, fără dependență de servicii externe.
+
+Din punct de vedere tehnic, Advanced RAG adaugă patru optimizări față de varianta de bază. Recuperarea hibridă combină recuperarea densă (all-MiniLM-L6-v2~\cite{karpukhin2020dpr} + ChromaDB) cu recuperarea sparse (BM25~\cite{robertson2009bm25} prin \texttt{bm25s}), listele rezultate fuzionând prin Reciprocal Rank Fusion~\cite{cormack2009rrf}. Expansiunea interogărilor folosește Qwen3-1.7B pentru a genera două reformulări ale interogării originale, reducând dependența de formularea exactă. Reranking-ul cu cross-encoder (\texttt{ms-marco-MiniLM-L-6-v2}) re-scorează cele mai bune 40 de candidate și returnează primele 5. Ambele sisteme refuză explicit când contextul recuperat nu conține informația solicitată, în loc să genereze răspunsuri plauzibile dar incorecte~\cite{asai2023self}.
+
+Scriptul de benchmark suportă evaluare pe mai multe seed-uri cu checkpoint după fiecare run, teste de semnificație statistică (Wilcoxon și McNemar) și generare automată de figuri. Interfața Streamlit permite testarea interactivă a ambelor sisteme și vizualizarea comparativă a răspunsurilor.
+
+Taxonomia din Capitolul 1 a fost adaptată pentru extragerea relațiilor între entități, nu pentru domeniul RAG în ansamblu, ceea ce limitează acoperirea dar face clasificarea mai directă pentru înțelegerea alegerii arhitecturale din demonstrator.
+
+\section*{Perspective de dezvoltare ulterioară}
+
+O limitare concretă a evaluării actuale este că s-a realizat pe SQuAD, un set de date de tip QA extractiv. Lucrarea urmărește aplicarea RAG la extragerea relațiilor între entități, pentru care T-REx~\cite{elsahar2018trex} (aliniament Wikipedia-Wikidata) sau DocRED~\cite{yao2019docred} sunt mai potrivite structural, deoarece conțin triplete (subiect, predicat, obiect) explicit adnotate. Adaptarea benchmark-ului pentru aceste seturi rămâne pasul imediat următor.
+
+Evaluarea RAGAS~\cite{es2024ragas}, cu metrici de fidelitate (faithfulness) și relevanță a răspunsului (answer relevancy), nu a putut fi finalizată în limitele de timp disponibile din cauza costului computațional ridicat (modelul judecător rulează câte un apel LLM per pereche întrebare-răspuns). O evaluare completă ar adăuga perspectiva calității fundamentării în context, independentă de potrivirea textuală cu referința.
+
+Pe latura arhitecturală, GraphRAG~\cite{edge2024graphrag} și HippoRAG~\cite{gutierrez2024hipporag} indexează explicit relațiile dintre entități și le utilizează la recuperare, ceea ce le face candidați direcți pentru extragerea relațiilor față de pipeline-urile actuale bazate pe fragmente de text. O comparație extinsă cu aceste metode ar clarifica în ce măsură structura relațională explicită aduce beneficii față de recuperarea hibridă pe text nestructurat.
+
+Latența Advanced RAG (~770 ms per interogare) provine în cea mai mare parte din apelul LLM pentru expansiunea interogărilor. O variantă fără expansiune, care păstrează recuperarea hibridă și cross-encoder-ul, ar reduce latența la câteva zeci de milisecunde cu o pierdere relativ mică la recall. Această variantă ar fi utilă în scenarii cu constrângeri stricte de timp de răspuns.
+
+În fine, evaluarea actuală folosește Qwen3-8B ca model generativ, fără fine-tuning. Modele mai mari sau antrenate specific pe extragerea relațiilor pot produce îmbunătățiri la Answer F1 independent de arhitectura de recuperare. Separarea contribuției modelului generativ de contribuția pipeline-ului de recuperare rămâne o direcție deschisă pentru cercetare ulterioară.

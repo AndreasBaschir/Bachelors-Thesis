@@ -1,0 +1,199 @@
+\documentclass[12pt, a4paper, twoside, romanian]{teza-upb}
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{3}
+% TikZ trebuie incarcat primul: pe TeX Live 2019, incarcarea bibliotecii
+% arrows.meta dupa alte pachete (in special listings) provoaca erori
+% "You can't use \unskip in vertical mode" la declararea sagetilor.
+% xcolor se incarca cu optiunile sale INAINTEA lui tikz, altfel apare
+% "Option clash for package xcolor" (tikz incarca xcolor fara optiuni).
+\usepackage[svgnames,dvipsnames,x11names]{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{positioning, shapes.geometric, arrows.meta}
+\usepackage{babel}
+\usepackage{graphicx}
+\usepackage{babel}
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage[
+  bookmarks,
+  bookmarksopen=true,
+  unicode=true,
+  pdfencoding=auto,
+  pdftitle={Dizertatie},
+  hidelinks,
+  linktocpage]{hyperref}
+
+\usepackage{url}
+
+\usepackage[final]{pdfpages}
+
+
+\usepackage{subcaption}
+
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{notoccite}
+
+\usepackage{xurl}
+\urlstyle{same}
+
+\usepackage[normalem]{ulem}
+
+\usepackage{amsmath,amsfonts,amssymb,amscd,amsthm}
+\usepackage{mathtools}
+
+\usepackage[tablename=Tabel]{caption}
+
+\usepackage{soul}
+\usepackage{booktabs}
+
+\newcommand{\lt}{\ensuremath <}
+\newcommand{\gt}{\ensuremath >}
+
+\singlespacing
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%cod colorat
+\usepackage{listings}
+\usepackage{color}
+ 
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+	language=Matlab,
+ %   backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{blue},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+	basicstyle=\ttfamily\scriptsize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+ 
+\lstset{style=mystyle}
+
+\usepackage{tabularx}
+
+% -- Repoziționare număr de pagină în centru jos ------------------------
+\makeatletter
+\def\ps@topright{%
+  \let\@mkboth\@gobbletwo    % nu punem nimic în header
+  \def\@oddhead{}%
+  \let\@evenhead\@oddhead
+  % numărul în FOOTER, centrat
+  \def\@oddfoot{\hfil\thepage\hfil}%
+  \let\@evenfoot\@oddfoot
+}
+\makeatother
+
+% -------- Nomenclature --------
+\usepackage{nomencl}
+\makenomenclature
+\renewcommand{\nomname}{Lista acronimelor}
+
+% To add nomenclature in the header
+\renewcommand{\nompreamble}{\markboth{\nomname}{\nomname}}
+
+% Add nomenclature to contents and print out nomenclature
+\newcommand{\printnomencl}[1][]{
+\ifthenelse{\equal {#1}{}}
+{\printnomenclature}
+{\printnomenclature[#1]}
+%\addcontentsline{toc}{chapter}{\nomname}
+}
+
+% -------- Create the index --------
+\makeindex
+
+
+\usepackage{afterpage}
+\newcommand\blankpage{
+    \null
+    \thispagestyle{empty}
+    \newpage
+}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\author{Andreas BAŞCHIR}
+
+\title{Sistem RAG pentru extragerea relațiilor între entități}
+%va corespunde celui din Anexa 2, la care se poate adăuga un subtitlu
+
+
+\facultatea{Facultatea de Electronică, Telecomunicații și Tehnologia Informației}
+\tiplucrare{Proiect de diplomă}
+%\tiplucrare{Lucrare de disertație}
+\domeniu{Electronică şi Telecomunicaţii}
+\catedra{Electronică Aplicată și Ingineria Informației}
+\campus{Leu} 
+\program{Electronică Aplicată}
+\titlulobtinut{Inginer}
+%\titlulobtinut{Master}
+\director{Ș.l. Dr. Ing. Liviu-Daniel ȘTEFAN \\
+Drd. Fiz. Alexandru IONIȚĂ}
+
+\submissionmonth{Iunie} 
+\submissionyear{2026}
+
+%\afterpage{\blankpage}
+\beforepreface
+
+\pagestyle{empty}
+\listoffigures
+%\afterpage{\blankpage}
+\newpage
+\thispagestyle{empty}
+\null
+\newpage
+\listoftables
+%\afterpage{\blankpage}
+\newpage
+\thispagestyle{empty}
+\null
+\newpage
+
+\printnomenclature
+%\afterpage{\blankpage}
+
+\addcontentsline{toc}{chapter}{Lista acronimelor}
+\include{Acronime/main}
+
+\afterpage{\blankpage}
+
+\afterpreface 
+
+% ======================================================
+% CAPITOLE
+% Fiecare capitol incepe pe pagina impara (conform regulamentului)
+% ======================================================
+\include{Introducere/main}
+\include{Studiu_literatura/main}
+\include{Rezultate/main}
+\include{Concluzii/main}
+
+% ======================================================
+% BIBLIOGRAFIE
+% ======================================================
+\bibliographystyle{unsrt}
+\bibliography{referinte}
+
+% ======================================================
+% ANEXE (numerotate incepand cu Anexa 1)
+% ======================================================
+\appendix
+\include{Anexe/anexa_1}
+\include{Anexe/anexa_n}
+
+\end{document}

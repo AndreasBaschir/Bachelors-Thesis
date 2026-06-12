@@ -1,0 +1,52 @@
+# ===== Fisiere generate de LaTeX (nu se urmaresc in git) =====
+# Se aplica recursiv, inclusiv in subdirectoarele capitolelor
+# (Introducere/, Studiu_literatura/, Rezultate/, Concluzii/, Anexe/, Acronime/).
+
+## Auxiliare de compilare
+*.aux
+*.lof
+*.log
+*.lot
+*.toc
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.synctex(busy)
+*.thm
+*.dvi
+*.ps
+
+## Bibliografie (regenerate de bibtex/biber)
+*.bbl
+*.blg
+*.bcf
+*.run.xml
+
+## Index (makeidx)
+*.idx
+*.ind
+*.ilg
+
+## Nomenclator (nomencl - lista acronimelor)
+*.nlo
+*.nls
+
+## Diverse
+*.brf
+*.glo
+*.gls
+*.glg
+*.acn
+*.acr
+*.alg
+*.xdy
+*~
+
+# ===== Sistem / editor =====
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ===== PDF compilat =====
+# teza.pdf

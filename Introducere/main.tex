@@ -1,0 +1,31 @@
+\chapter*{Introducere}
+\addcontentsline{toc}{chapter}{Introducere}
+
+\section*{Scopul lucrării de diplomă} 
+
+Sistemele RAG (Retrieval-Augmented-Generation) reprezintă o arhitectură de sistem de inteligență artificială care combină recuperarea informațiilor relevante din surse externe cu generarea de text de către modele de limbaj mari (LLMs - Large Language Models)
+
+RAG a fost propus ca soluție pentru natura statică a informațiilor reținute de către modelele de limbaj mari, consecință a antrenării pe durate limitate, cu pauze între versiuni.  
+
+\section*{Gradul de noutate}
+
+Sistemele RAG au apărut oficial în 2020, prin lucrarea „Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks” publicată de Lewis et al. de la Facebook AI Research (astăzi Meta AI), în contextul exploziei modelelor transformer precum BERT și GPT, care generau răspunsuri creative, dar adesea inexacte sau „halucinate” din cauza limitărilor cunoștințelor lor statice.
+
+De la începutul în 2020 cu RAG „naive”, sistemul a evoluat rapid: în 2023-2024 au apărut variante precum Advanced RAG și Modular RAG; în 2024, Microsoft a introdus GraphRAG pentru relații complexe via knowledge graphs, iar în 2025 s-au impus hibridări (vectori denși și rari, SQL-RAG pentru operații matematice) și Multi-RAG pentru scalabilitate în întreprinderile mari. Până în 2026, RAG este omniprezent în aplicații de business, chatbots și agenți AI, fiind o tehnologie utilizată în producție, trecută de ani de stadiul de prototip.
+
+\section*{Obiectivele proiectului}
+
+Obiectivul proiectului este de a introduce noțiuni despre contextul utilizării sistemelor RAG, cum se pot implementa, care sunt constrângerile dar și punctele forte ale acestora. Se vor prezenta și posibile direcții de viitor ale domeniului sistemelor RAG.
+
+\section*{Contribuții și rezultate}
+
+Se va prezenta o comparație utilizând metrici din mediul academic dintre un sistem RAG de tip "naive" și un sistem de tip "advanced", cu o interfață grafică de testare a LLM-urilor.
+
+\section*{Conţinutul lucrării}
+
+Lucrarea este structurată în două capitole principale:
+
+\textbf{Capitolul 1 - Studiu de literatură} parcurge domeniul RAG din perspective teoretice și practice. Acesta cuprinde: (1) introducerea și contextul LLM-urilor în extragerea informației; (2) taxonomia sistemelor RAG clasificate după tipul recuperării, integrării și surselor de informație; (3) arhitectura generală a unui sistem RAG cu descrierea componentelor principale; (4) prezentarea metodelor și modelelor reprezentative din literatură (Self-RAG, CRAG, HyDE, GraphRAG); (5) definirea și analiza metricilor de evaluare pentru fiecare etapă a pipeline-ului de RAG (recuperare, generare, augmentare); (6) prezentarea seturilor de date utilizate în evaluarea RAG (T-REx, CRAG, WebNLG, HotpotQA); și (7) discutarea limitărilor și provocărilor actuale ale sistemelor RAG.
+
+\textbf{Capitolul 2 - Rezultate experimentale} prezintă implementarea și comparația empirică a două tipuri de sisteme RAG: (1) Naive RAG - versiunea de bază cu recuperare pe bază de vectori denși și generare de către limbajul lingvistic mare; și (2) Advanced RAG - cu recuperare de tip hibrid, reordonare și rescriere a interogărilor LLM-ului. Pentru experimente a fost utilizat setul de date T-REx (relații entitate-entitate din Wikipedia aliniate cu Wikidata). Capitolul cuprinde atât analiza cantitativă (metrici RAGAS, Precision@K, Recall@K, MRR, F1) cât și analiza calitativă ale sistemelor RAG. Sistemele ilustrate anterior pot fi testate interactiv într-o interfață implementată în Streamlit.
+
