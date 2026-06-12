@@ -79,7 +79,7 @@ Modelul de embedding este \texttt{all-MiniLM-L6-v2}~\cite{karpukhin2020dpr}, un 
 \subsection{Configurația hardware}
 \label{subsec:hardware}
 
-Întreg sistemul a fost dezvoltat și evaluat pe o singură stație de lucru, fără infrastructură distribuită. Configurația cuprinde o placă grafică NVIDIA RTX A5000 cu 24 GB de memorie video, un procesor Intel Xeon Silver 4309Y la 2,80 GHz cu 6 nuclee, 64 GB de memorie RAM și un disc M.2 de 1 TB. Placa grafică rulează atât modelele de embedding și cross-encoder, cât și cele două modele Qwen3 prin Ollama. Cei 24 GB de memorie video sunt suficienți pentru a ține simultan modelul generativ de 8B parametri și modelele auxiliare, fără a le descărca și reîncărca între interogări. Toate valorile de latență raportate în acest capitol au fost măsurate pe această configurație și depind de ea.
+Întreg sistemul a fost dezvoltat și evaluat pe o singură stație de lucru, fără infrastructură distribuită. Configurația cuprinde o placă grafică NVIDIA RTX A5000 cu 24 GB de memorie video, un procesor Intel Xeon Silver 4309Y la 2,80 GHz cu 8 nuclee și 16 fire de execuție, 64 GB de memorie RAM și un disc M.2 de 1 TB. Placa grafică rulează atât modelele de embedding și cross-encoder, cât și cele două modele Qwen3 prin Ollama. Cei 24 GB de memorie video sunt suficienți pentru a ține simultan modelul generativ de 8B parametri și modelele auxiliare, fără a le descărca și reîncărca între interogări. Toate valorile de latență raportate în acest capitol au fost măsurate pe această configurație și depind de ea.
 
 \subsection{Indexarea datelor}
 
@@ -265,7 +265,7 @@ Validitatea concluziilor depinde de corectitudinea comparației, adică de garan
 
 \subsection{Rezultate}
 
-Rezultatele agregate pe cele 4 seed-uri sunt prezentate în Tabelul~\ref{tab:rezultate}. Advanced RAG depășește Naive RAG pe toate metricile de calitate, cu o creștere de 14,4 puncte procentuale la Context Recall (de la 83,5\% la 95,5\%), 25,7 puncte la MRR (de la 0,719 la 0,904) și 10,4 puncte la Exact Match (de la 64,2\% la 74,5\%). Answer F1 crește mai modest, cu 7,3\% relativ (de la 0,191 la 0,205).
+Rezultatele agregate pe cele 4 seed-uri sunt prezentate în Tabelul~\ref{tab:rezultate}. Advanced RAG depășește Naive RAG pe toate metricile de calitate, cu o creștere de 12,0 puncte procentuale la Context Recall (de la 83,5\% la 95,5\%), 0,185 la MRR (de la 0,719 la 0,904) și 10,3 puncte procentuale la Exact Match (de la 64,2\% la 74,5\%). Answer F1 crește mai modest, cu 7,3\% relativ (de la 0,191 la 0,205).
 
 \begin{table}[ht]
 \centering
@@ -372,13 +372,13 @@ Defalcarea acestei latențe este instructivă. Componenta dominantă este apelul
 
 \subsection{Unde ajută recuperarea hibridă}
 
-Diferența cea mai pronunțată dintre cele două sisteme apare la metricile de recuperare, nu la cele de generare. Creșterea cu 14,4 puncte la Context Recall înseamnă că, în 12 din 100 de cazuri unde Naive RAG eșuează, Advanced RAG găsește totuși fragmentul corect. MRR crescut de la 0,719 la 0,904 arată că, pe lângă faptul că găsește mai des fragmentul corect, îl și plasează pe poziții mai înalte.
+Diferența cea mai pronunțată dintre cele două sisteme apare la metricile de recuperare, nu la cele de generare. Creșterea cu 12,0 puncte la Context Recall înseamnă că, în 12 din 100 de cazuri unde Naive RAG eșuează, Advanced RAG găsește totuși fragmentul corect. MRR crescut de la 0,719 la 0,904 arată că, pe lângă faptul că găsește mai des fragmentul corect, îl și plasează pe poziții mai înalte.
 
 Recuperarea hibridă (densă + BM25) are un avantaj clar pe interogările cu termeni specifici: date, numere, denumiri proprii, acronime. Modelul de embedding codifică înțeles semantic, dar poate dilua termeni rari într-un spațiu vectorial continuu unde similaritatea cosinus favorizează documente tematic apropiate, nu neapărat lexical identice. BM25~\cite{robertson2009bm25} nu are această problemă: un termen care apare exact o dată în corpus va fi regăsit cu precizie dacă apare și în interogare. Expansiunea interogărilor contribuie la recall prin acoperirea variantelor de formulare, reducând dependența de formularea exactă a întrebării~\cite{gao2024retrievalaugmentedgenerationlargelanguage}.
 
 \subsection{Decalajul dintre recuperare și generare}
 
-Îmbunătățirile la recuperare nu se traduc proporțional în îmbunătățiri la generare. Context Recall crește cu ~14 puncte procentuale, dar Answer F1 crește cu ~7\% relativ, iar Exact Match cu ~10 puncte procentuale.
+Îmbunătățirile la recuperare nu se traduc proporțional în îmbunătățiri la generare. Context Recall crește cu 12 puncte procentuale, dar Answer F1 crește cu doar ~7\% relativ, iar Exact Match cu ~10 puncte procentuale.
 
 Explicația principală este că SQuAD a fost conceput ca benchmark pentru citire extractivă, unde modelul ar trebui să extragă textual un fragment din pasaj. Modelele generative moderne tind să parafrazeze răspunsul mai degrabă decât să îl reproducă cuvânt cu cuvânt, ceea ce scade Answer F1 față de valoarea maximă posibilă, chiar dacă răspunsul este corect semantic. O a doua explicație este că Naive RAG recuperează corect fragmentul în 83,5\% din cazuri, ceea ce înseamnă că modelul generativ primea oricum contextul corect pentru cea mai mare parte a întrebărilor. Câștigul din Advanced RAG vine tocmai din cazurile dificile, adică interogările cu termeni rari sau cu răspunsuri scurte greu de localizat prin similaritate semantică pură, unde generarea oricum eșuează mai des.
 
