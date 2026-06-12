@@ -3,9 +3,11 @@
 
 \section*{Scopul lucrării de diplomă} 
 
-Sistemele RAG (Retrieval-Augmented-Generation) reprezintă o arhitectură de sistem de inteligență artificială care combină recuperarea informațiilor relevante din surse externe cu generarea de text de către modele de limbaj mari (LLMs - Large Language Models)
+Sistemele RAG (Retrieval-Augmented Generation) reprezintă o arhitectură de inteligență artificială care combină recuperarea informațiilor relevante din surse externe cu generarea de text de către modele de limbaj mari (LLMs - Large Language Models). În loc să se bazeze exclusiv pe cunoștințele încorporate în parametrii modelului la antrenare, un sistem RAG caută mai întâi documente relevante pentru întrebarea utilizatorului, apoi le folosește ca temei pentru răspuns.
 
-RAG a fost propus ca soluție pentru natura statică a informațiilor reținute de către modelele de limbaj mari, consecință a antrenării pe durate limitate, cu pauze între versiuni.  
+RAG a fost propus ca soluție pentru natura statică a informațiilor reținute de modelele de limbaj mari, consecință a antrenării pe durate limitate, cu pauze între versiuni. Un model antrenat în 2023 nu cunoaște evenimente ulterioare și nu poate fi corectat fără reantrenare, un proces costisitor. Recuperarea externă rezolvă această problemă printr-un mecanism mult mai ieftin: actualizarea bazei de cunoștințe, nu a modelului.
+
+Lucrarea de față se concentrează pe aplicarea RAG la extragerea relațiilor între entități, o sarcină de bază în procesarea limbajului natural care constă în identificarea legăturilor dintre entitățile menționate într-un text. Spre deosebire de clasificatoarele specializate, antrenate pentru un set fix de relații, un sistem RAG poate recupera contextul relevant pentru o pereche de entități și poate generaliza către relații noi fără reantrenare, ceea ce îl face o direcție atractivă pentru această sarcină.
 
 \section*{Gradul de noutate}
 
@@ -15,11 +17,13 @@ De la începutul în 2020 cu RAG „naive”, sistemul a evoluat rapid: în 2023
 
 \section*{Obiectivele proiectului}
 
-Obiectivul proiectului este de a introduce noțiuni despre contextul utilizării sistemelor RAG, cum se pot implementa, care sunt constrângerile dar și punctele forte ale acestora. Se vor prezenta și posibile direcții de viitor ale domeniului sistemelor RAG.
+Lucrarea are patru obiective. Primul este prezentarea cadrului teoretic al sistemelor RAG: definiția, arhitectura generală, principalele metode din literatură și metricile de evaluare. Al doilea este implementarea unui demonstrator care compară o arhitectură de bază cu una optimizată, izolând contribuția etapelor de recuperare. Al treilea este evaluarea cantitativă și calitativă a celor două sisteme pe un set de date public, cu teste de semnificație statistică pentru a valida diferențele observate. Al patrulea este identificarea constrângerilor și a direcțiilor de dezvoltare ulterioară, în special pentru aplicarea la extragerea relațiilor între entități.
 
 \section*{Contribuții și rezultate}
 
-Se va prezenta o comparație utilizând metrici din mediul academic dintre un sistem RAG de tip "naive" și un sistem de tip "advanced", cu o interfață grafică de testare a LLM-urilor.
+Contribuția principală este un demonstrator open-source care compară un sistem RAG de tip „naive” cu unul de tip „advanced” pe același set de date și același model lingvistic, însoțit de o interfață grafică pentru testarea interactivă a celor două pipeline-uri. Comparația folosește metrici consacrate în literatura de specialitate (Context Recall, MRR, Exact Match, F1), iar diferențele sunt validate prin teste statistice pereche.
+
+Evaluarea inițială se realizează pe SQuAD, un set de date de referință pentru regăsire și citire extractivă. Această alegere este motivată de structura setului: răspunsul este un fragment de text cu sursă cunoscută, ceea ce permite o măsurare automată și reproductibilă a calității recuperării, izolând contribuția pipeline-ului de recuperare fără a depinde de un model-judecător. Pornind de la această validare, aceeași arhitectură urmează să fie evaluată pe extragerea relațiilor între entități, scopul final al lucrării.
 
 \section*{Conţinutul lucrării}
 
@@ -27,5 +31,5 @@ Lucrarea este structurată în două capitole principale:
 
 \textbf{Capitolul 1 - Studiu de literatură} parcurge domeniul RAG din perspective teoretice și practice. Acesta cuprinde: (1) introducerea și contextul LLM-urilor în extragerea informației; (2) taxonomia sistemelor RAG clasificate după tipul recuperării, integrării și surselor de informație; (3) arhitectura generală a unui sistem RAG cu descrierea componentelor principale; (4) prezentarea metodelor și modelelor reprezentative din literatură (Self-RAG, CRAG, HyDE, GraphRAG); (5) definirea și analiza metricilor de evaluare pentru fiecare etapă a pipeline-ului de RAG (recuperare, generare, augmentare); (6) prezentarea seturilor de date utilizate în evaluarea RAG (T-REx, CRAG, WebNLG, HotpotQA); și (7) discutarea limitărilor și provocărilor actuale ale sistemelor RAG.
 
-\textbf{Capitolul 2 - Rezultate experimentale} prezintă implementarea și comparația empirică a două tipuri de sisteme RAG: (1) Naive RAG - versiunea de bază cu recuperare pe bază de vectori denși și generare de către limbajul lingvistic mare; și (2) Advanced RAG - cu recuperare de tip hibrid, reordonare și rescriere a interogărilor LLM-ului. Pentru experimente a fost utilizat setul de date T-REx (relații entitate-entitate din Wikipedia aliniate cu Wikidata). Capitolul cuprinde atât analiza cantitativă (metrici RAGAS, Precision@K, Recall@K, MRR, F1) cât și analiza calitativă ale sistemelor RAG. Sistemele ilustrate anterior pot fi testate interactiv într-o interfață implementată în Streamlit.
+\textbf{Capitolul 2 - Rezultate experimentale} prezintă implementarea și comparația empirică a două tipuri de sisteme RAG: (1) Naive RAG - versiunea de bază cu recuperare pe bază de vectori denși și generare de către modelul lingvistic mare; și (2) Advanced RAG - cu recuperare de tip hibrid, reordonare și rescriere a interogărilor LLM-ului. Arhitectura a fost validată mai întâi pe setul de date SQuAD (Stanford Question Answering Dataset), un benchmark extractiv care permite o evaluare automată și precisă a recuperării; evaluarea pe extragerea relațiilor între entități, pe seturi de tip T-REx (relații entitate-entitate din Wikipedia aliniate cu Wikidata), constituie etapa imediat următoare a lucrării. Capitolul cuprinde atât analiza cantitativă (Precision@K, Recall@K, MRR, F1) cât și analiza calitativă ale sistemelor RAG; evaluarea cu metrici RAGAS (fidelitate și relevanța răspunsului) este prevăzută ca extensie. Sistemele ilustrate anterior pot fi testate interactiv într-o interfață implementată în Streamlit.
 
