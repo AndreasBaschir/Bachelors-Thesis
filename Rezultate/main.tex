@@ -4,7 +4,7 @@ Partea aplicativă a lucrării constă într-un demonstrator care pune față î
 
 Sistemul rulează integral local, pe hardware propriu, fără apeluri către servicii externe. Această alegere a fost importantă din două motive. Primul ține de reproducibilitate: un model rulat local produce aceleași rezultate de fiecare dată, fără a depinde de versiunea unui API care se poate schimba peste noapte. Al doilea ține de control: avem acces complet la promptul de sistem, la parametrii de recuperare și la fragmentele intermediare, ceea ce face posibilă analiza pas cu pas a comportamentului.
 
-Acest capitol descrie mai întâi proiectarea sistemului, adică cerințele, tehnologiile, arhitectura și algoritmii celor două pipeline-uri, împreună cu interfața și fluxul utilizatorului. Urmează analiza cantitativă, în care cele două sisteme sunt comparate pe metrici de recuperare și de generare, și analiza calitativă, care interpretează rezultatele și discută compromisurile observate.
+Acest capitol descrie mai întâi proiectarea sistemului, adică cerințele, tehnologiile, arhitectura și algoritmii celor două pipeline-uri, împreună cu interfața și fluxul utilizatorului. Urmează analiza cantitativă, în care cele două sisteme sunt comparate pe metrici de recuperare și de generare. Evaluarea acoperă două seturi de date: unul de tip întrebare-răspuns extractiv, folosit pentru validarea arhitecturii, și unul de extragere a relațiilor între entități, care corespunde scopului lucrării. Capitolul se încheie cu analiza calitativă, care interpretează rezultatele și discută compromisurile observate.
 
 \section{Proiectarea sistemului}
 
@@ -67,7 +67,7 @@ Bază vectorială      & ChromaDB                    & Indexare și căutare den
 Indexare rară        & bm25s                       & Căutare BM25 pe cuvinte cheie \\
 Interfață            & Streamlit                   & Interacțiune și vizualizare \\
 Evaluare             & RAGAS, SciPy               & Metrici și teste statistice \\
-Set de date          & SQuAD (HuggingFace)         & Corpus și întrebări de test \\
+Set de date          & SQuAD, DocRED (HuggingFace) & Corpus și întrebări de test \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -370,6 +370,120 @@ Pentru a verifica dacă diferențele nu depind de un eșantion particular de în
 
 Se observă că Advanced RAG depășește Naive RAG pe fiecare seed în parte, nu doar în medie. Variația între seed-uri este mică pentru ambele sisteme (sub 2 puncte procentuale la Context Recall pentru Naive și sub 3,5 pentru Advanced), ceea ce arată că rezultatele sunt stabile și nu depind de un eșantion norocos. Această consistență întărește concluzia testelor de semnificație: avantajul arhitecturii avansate este real și reproductibil.
 
+\section{Evaluarea pe extragerea relațiilor între entități}
+
+Evaluarea pe SQuAD validează arhitectura pe o sarcină de tip întrebare-răspuns extractiv, dar nu măsoară direct scopul lucrării, extragerea relațiilor între entități. Pentru a testa exact această capacitate, demonstratorul a fost extins cu o a doua evaluare, pe setul de date DocRED~\cite{yao2019docred}, un corpus de extragere a relațiilor la nivel de document.
+
+\subsection{Setul de date DocRED și formularea ca întrebări}
+
+DocRED (Document-Level Relation Extraction Dataset)~\cite{yao2019docred} conține documente Wikipedia adnotate manual, fiecare cu un set de entități și o listă de relații sub formă de triplete (subiect, relație, obiect), împreună cu propozițiile care susțin fiecare relație. Spre deosebire de seturile de extragere a relațiilor la nivel de propoziție, DocRED cere identificarea unor relații care se întind uneori pe mai multe propoziții, ceea ce îl apropie de scenariile reale de extragere a cunoștințelor~\cite{yao2019docred}.
+
+Pentru a folosi aceeași infrastructură de evaluare ca în cazul SQuAD, fiecare triplet a fost reformulat ca întrebare, după modelul extragerii relațiilor prin citire (reading comprehension)~\cite{levy2017zeroshot}. Dintr-un triplet (entitate-cap, relație, entitate-coadă) se construiește o întrebare de forma ,,Care este {relația} a entității {entitate-cap}?'', iar răspunsul așteptat este entitatea-coadă, cu toate formele ei de suprafață acceptate ca variante corecte. Documentul sursă devine contextul de referință, iar titlul lui servește la verificarea sursei, la fel ca în SQuAD. Această formulare corespunde sarcinii de completare a unui câmp lipsă (slot filling), în care modelul primește capul și tipul relației și trebuie să producă coada~\cite{levy2017zeroshot, zhang2017tacred}. Pentru fiecare document se păstrează un singur triplet, ales determinist, astfel încât unitatea de evaluare să rămână identică cu cea din SQuAD, o întrebare per document. Corpusul indexat în ChromaDB este format din documentele DocRED, deduplicate după titlu.
+
+Pe plan tehnic, adăugarea celui de-al doilea set de date a presupus separarea logicii de date de cele două pipeline-uri, care erau legate inițial de o singură colecție. Fiecare set de date are acum propria colecție ChromaDB și propriul index BM25, astfel încât recuperarea să nu amestece niciodată documente din surse diferite. Ambele pipeline-uri rezolvă colecția activă în momentul interogării, în funcție de setul de date selectat la pornire.
+
+Evaluarea pe DocRED a folosit câte 100 de întrebări pe fiecare dintre cele 3 seed-uri (42, 1042, 2042), totalizând 300 de întrebări, dintre care 204 cu răspuns în corpus și 96 fără răspuns. Întrebările fără răspuns au fost construite prin asocierea unei entități reale cu o relație pe care documentul ei nu o conține, aleasă determinist din vocabularul celor 96 de tipuri de relații din DocRED~\cite{yao2019docred}. Aceste cazuri testează direct comportamentul de refuz al sistemului: răspunsul corect este abținerea. Trebuie remarcat că adnotările DocRED nu sunt exhaustive, deci o relație considerată inexistentă poate fi uneori adevărată în realitate, ceea ce adaugă zgomot acestei metrici~\cite{tan2022redocred}. Spre deosebire de evaluarea pe SQuAD, modelele de embedding și de reranking au rulat pe procesor, lăsând întreaga memorie a plăcii grafice modelelor lingvistice; din acest motiv latențele absolute raportate pe DocRED sunt mai mari decât cele din Secțiunea~\ref{subsec:hardware}.
+
+\subsection{Rezultate pe recuperare și generare}
+
+Tabelul~\ref{tab:docred} prezintă rezultatele pe DocRED. La fel ca pe SQuAD, Advanced RAG depășește net Naive RAG pe metricile de recuperare, dar de această dată marja este și mai mare. Context Recall crește de la 0,595 la 0,802 (+20,7 puncte procentuale), iar MRR de la 0,525 la 0,752 (+0,227). Pe SQuAD, aceleași diferențe erau de aproximativ 12 puncte la recall și 0,18 la MRR. Cu alte cuvinte, optimizările de recuperare ajută mai mult la extragerea relațiilor decât la întrebările extractive simple~\cite{gao2024retrievalaugmentedgenerationlargelanguage}.
+
+\begin{table}[ht]
+\centering
+\caption{Rezultate comparative pe DocRED ($N=300$ per sistem: 204 cu răspuns plus 96 fără răspuns, medie $\pm$ deviație standard pe 3 seed-uri)}
+\label{tab:docred}
+\begin{tabular}{lccl}
+\toprule
+\textbf{Metrică} & \textbf{Naive RAG} & \textbf{Advanced RAG} & \textbf{Semnificație} \\
+\midrule
+Context Recall@5       & $0{,}595 \pm 0{,}137$ & $0{,}802 \pm 0{,}051$ & McNemar $p = 4{,}5 \times 10^{-10}$ \\
+MRR                    & $0{,}525 \pm 0{,}118$ & $0{,}752 \pm 0{,}069$ & Wilcoxon $p = 6{,}7 \times 10^{-11}$ \\
+Exact Match            & $0{,}375 \pm 0{,}072$ & $0{,}450 \pm 0{,}020$ & McNemar $p = 0{,}036$ \\
+Answer F1              & $0{,}074 \pm 0{,}010$ & $0{,}073 \pm 0{,}008$ & Wilcoxon $p = 0{,}97$ (n.s.) \\
+Rata de halucinație    & $0{,}090 \pm 0{,}048$ & $0{,}071 \pm 0{,}031$ & McNemar $p = 0{,}63$ (n.s.) \\
+RAGAS Faithfulness     & $0{,}950 \pm 0{,}019$ & $0{,}874 \pm 0{,}031$ & efect de selecție \\
+RAGAS Answer Relevancy & $0{,}876 \pm 0{,}005$ & $0{,}868 \pm 0{,}007$ & --- \\
+Latență medie (ms)     & $34{,}3  \pm 1{,}8$   & $2092{,}8 \pm 56{,}8$ & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Explicația ține de natura interogărilor. O întrebare despre o relație conține aproape întotdeauna un nume propriu de entitate, capul relației, iar răspunsul corect este tot un nume propriu, coada. Recuperarea densă tinde să dilueze aceste nume rare într-un spațiu semantic unde domină documentele tematic apropiate, în timp ce BM25~\cite{robertson2009bm25} le potrivește exact. Pe DocRED, unde fiecare întrebare depinde de un nume specific, avantajul recuperării hibride devine mai pronunțat decât pe SQuAD (Figura~\ref{fig:docred_retrieval}).
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.80\linewidth]{Imagini/docred_retrieval_metrics.pdf}
+    \caption{Metrici de recuperare pe DocRED: Context Recall@5 și MRR pentru Naive RAG și Advanced RAG. Avantajul arhitecturii avansate este vizibil mai mare decât pe SQuAD, deoarece întrebările despre relații depind de nume proprii de entități, pe care recuperarea hibridă le potrivește lexical. Barele de eroare reprezintă deviația standard pe cele 3 seed-uri.}
+    \label{fig:docred_retrieval}
+\end{figure}
+
+La generare, imaginea este mai nuanțată. Exact Match crește de la 0,375 la 0,450, o diferență semnificativă statistic (McNemar, $p = 0{,}036$). Answer F1 rămâne însă scăzut și aproape neschimbat, în jur de 0,07 pentru ambele sisteme, fără diferență semnificativă. Motivul este că Answer F1 măsoară suprapunerea de token-uri între răspunsul generat și entitatea de referință, care este de obicei foarte scurtă, de unul sau două cuvinte, în timp ce modelul răspunde în propoziții complete. Pe DocRED, metrica relevantă pentru generare este așadar Exact Match, care verifică dacă entitatea corectă apare în răspuns, nu suprapunerea exactă de cuvinte (Figura~\ref{fig:docred_answer})~\cite{rajpurkar-etal-2016-squad}.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.80\linewidth]{Imagini/docred_answer_quality.pdf}
+    \caption{Calitatea răspunsurilor pe DocRED: Answer F1 și Exact Match. Answer F1 este scăzut și plat deoarece compară token-uri cu entități de referință foarte scurte, în timp ce modelul răspunde în propoziții; Exact Match, care verifică prezența entității corecte, este metrica de generare relevantă aici.}
+    \label{fig:docred_answer}
+\end{figure}
+
+\subsection{Rezistența la halucinații}
+
+Cele 96 de întrebări fără răspuns testează una dintre proprietățile centrale promise de RAG: refuzul de a inventa atunci când informația lipsește~\cite{asai2023self}. Pentru fiecare astfel de întrebare, comportamentul corect este abținerea, iar rata de halucinație măsoară fracția de cazuri în care sistemul a produs totuși un răspuns în loc să refuze. Valori mai mici sunt mai bune.
+
+Ambele sisteme se descurcă bine, cu rate de halucinație scăzute: 0,090 pentru Naive și 0,071 pentru Advanced (Figura~\ref{fig:docred_hallucination}). Advanced RAG halucinează ceva mai rar, dar diferența nu este semnificativă statistic (McNemar, $p = 0{,}63$), pentru că numărul de întrebări negative este mic, 96, cu doar câteva perechi discordante. Rezultatul confirmă totuși că promptul de grounding funcționează: chiar și pe întrebări construite special ca să nu aibă răspuns, ambele sisteme refuză în peste 90\% din cazuri, în loc să fabrice o relație inexistentă~\cite{asai2023self}.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.65\linewidth]{Imagini/docred_hallucination.pdf}
+    \caption{Rata de halucinație pe cele 96 de întrebări fără răspuns din DocRED (valori mai mici sunt mai bune). Ambele sisteme refuză să răspundă în peste 90\% din cazuri, ceea ce confirmă efectul constrângerii de grounding. Diferența dintre cele două nu este semnificativă statistic la acest număr de întrebări.}
+    \label{fig:docred_hallucination}
+\end{figure}
+
+\subsection{Fidelitatea răspunsurilor și efectul de selecție}
+
+Pe lângă potrivirea cu referința, calitatea răspunsurilor a fost evaluată și cu RAGAS~\cite{es2024ragas}, un cadru care folosește un model lingvistic ca evaluator pentru a estima fidelitatea (faithfulness) răspunsului față de contextul recuperat și relevanța lui față de întrebare. Refuzurile sunt excluse din această metrică, deoarece un refuz corect nu conține afirmații de verificat~\cite{es2024ragas}.
+
+La prima vedere, rezultatele par să contrazică restul analizei: pe DocRED, Advanced RAG obține o fidelitate mai mică decât Naive (0,874 față de 0,950), deși recuperează vădit mai bine (Figura~\ref{fig:docred_ragas}). Explicația nu ține de calitatea răspunsurilor, ci de faptul că cele două sisteme sunt evaluate pe seturi diferite de întrebări. Pentru că refuzurile sunt excluse, fiecare sistem este notat doar pe întrebările la care a ales să răspundă. Naive RAG refuză mai des, 116 din 204 întrebări, față de 102 pentru Advanced, deci este evaluat pe un subset mai mic și mai ușor, format din întrebările la care chiar și recuperarea lui mai slabă a găsit clar răspunsul. Advanced RAG încearcă în plus întrebări mai grele, inclusiv relații care se întind pe mai multe propoziții, unde afirmațiile sunt mai greu de fundamentat~\cite{yao2019docred}.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.80\linewidth]{Imagini/docred_ragas_metrics.pdf}
+    \caption{Metrici RAGAS pe DocRED, calculate pe subsetul propriu fiecărui sistem (refuzurile excluse). Advanced RAG pare mai puțin fidel decât Naive, dar comparația este înșelătoare: cele două sisteme sunt notate pe seturi diferite de întrebări, deoarece refuză întrebări diferite.}
+    \label{fig:docred_ragas}
+\end{figure}
+
+Pentru o comparație corectă, fidelitatea a fost recalculată pe subsetul comun, adică pe cele 70 de întrebări la care ambele sisteme au dat un răspuns efectiv, nu un refuz (Tabelul~\ref{tab:docred-common}). Pe acest set identic, decalajul dispare aproape complet: 0,940 pentru Naive și 0,935 pentru Advanced, o diferență mai mică decât deviația standard între seed-uri, deci o egalitate statistică (Figura~\ref{fig:docred_ragas_common}). Relevanța răspunsului este la fel de apropiată (0,877 față de 0,878). Pe întrebări identice, cele două sisteme sunt deci la fel de fidele contextului și la fel de relevante; deficitul aparent de fidelitate al sistemului avansat era un artefact de selecție, nu o slăbiciune reală de fundamentare~\cite{es2024ragas}.
+
+\begin{table}[ht]
+\centering
+\caption{RAGAS pe subsetul comun de întrebări la care ambele sisteme au răspuns efectiv ($N=70$, DocRED)}
+\label{tab:docred-common}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Metrică} & \textbf{Naive RAG} & \textbf{Advanced RAG} \\
+\midrule
+Faithfulness (fidelitate)     & $0{,}940 \pm 0{,}012$ & $0{,}935 \pm 0{,}009$ \\
+Answer Relevancy (relevanță)  & $0{,}877 \pm 0{,}015$ & $0{,}878 \pm 0{,}022$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.80\linewidth]{Imagini/docred_ragas_common.pdf}
+    \caption{Metrici RAGAS pe subsetul comun ($N=70$), unde ambele sisteme răspund la aceleași întrebări. Decalajul de fidelitate din Figura~\ref{fig:docred_ragas} dispare: pe întrebări identice, cele două sisteme sunt la fel de fidele și la fel de relevante.}
+    \label{fig:docred_ragas_common}
+\end{figure}
+
+Figura~\ref{fig:docred_radar} sintetizează metricile de calitate pe DocRED, cu fidelitatea și relevanța calculate pe subsetul comun. Imaginea de ansamblu este consistentă: Advanced RAG conduce clar la recuperare (Context Recall, MRR) și la Exact Match, fără să piardă nimic la fidelitate sau relevanță. Concluzia evaluării pe extragerea relațiilor este că arhitectura avansată recuperează mai bine și răspunde la mai multe întrebări, fără un cost în fidelitatea răspunsului~\cite{es2024ragas, yao2019docred}.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.72\linewidth]{Imagini/docred_overview_radar_new.pdf}
+    \caption{Vedere de ansamblu a metricilor de calitate pe DocRED. Fidelitatea și relevanța sunt calculate pe subsetul comun, pentru o comparație corectă. Advanced RAG conduce la recuperare și la Exact Match, iar la fidelitate și relevanță cele două sisteme sunt la egalitate. Latența nu este inclusă deoarece se află pe o scară diferită.}
+    \label{fig:docred_radar}
+\end{figure}
+
 \section{Analiză calitativă}
 
 \subsection{Compromisul dintre calitate și latență}
@@ -420,12 +534,12 @@ O a doua sursă ține de reranking. Cross-encoderul reordonează fragmentele dup
 
 A treia categorie ține de natura metricii Exact Match. O parte din diferențele observate nu reflectă răspunsuri greșite, ci reformulări: ambele sisteme pot produce un răspuns corect semantic, dar care nu se potrivește exact cu referința. În aceste cazuri, diferența la Exact Match este un artefact al metricii, nu o eroare reală de extragere. Această observație întărește argumentul că o evaluare completă necesită și metrici care tolerează reformularea, precum cele bazate pe fidelitate.
 
-\subsection{Limitările demonstratorului}
+\subsection{Limitările analizei}
 
 Rezultatele trebuie interpretate în lumina câtorva limitări ale configurației experimentale.
 
-Prima ține de setul de date. SQuAD este un benchmark de tip QA extractiv, în care răspunsul este un fragment de text, nu o relație structurată. Deși permite o evaluare automată și precisă a recuperării, nu măsoară direct capacitatea de extragere a relațiilor între entități, care este scopul final al lucrării. Concluziile despre avantajul Advanced RAG se referă, strict, la recuperarea și răspunsul la întrebări, și urmează să fie confirmate pe seturi dedicate extragerii relațiilor.
+Prima ține de seturile de date și de modul în care a fost formulată sarcina. SQuAD este un benchmark de tip QA extractiv, în care răspunsul este un fragment de text, nu o relație structurată; el validează arhitectura de recuperare, dar nu măsoară direct extragerea relațiilor. Pe DocRED, extragerea relațiilor a fost transformată în întrebări de completare a unui câmp lipsă (slot filling), în care modelul primește capul și tipul relației și trebuie să producă coada~\cite{levy2017zeroshot}. Această formulare nu testează clasificarea relațiilor sau extragerea completă a tuturor tripletelor dintr-un document, iar folosirea unui singur triplet per document nu valorifică bogăția adnotărilor DocRED, unde un document conține de regulă multe relații~\cite{yao2019docred}.
 
-A doua ține de scala evaluării. Cele 600 de întrebări per sistem oferă o bază statistică solidă, dar corpusul de paragrafe provine dintr-un singur set de date, omogen ca stil și domeniu. Pe corpusuri mai mari și mai diverse, comportamentul celor două sisteme ar putea diferi, în special în privința latenței și a calității recuperării.
+A doua ține de scala evaluării și de pregătirea datelor. Cele 600 de întrebări per sistem pe SQuAD și 300 pe DocRED oferă o bază statistică solidă, dar fiecare corpus provine dintr-o singură sursă, relativ omogenă ca stil. Pe corpusuri mai mari și mai diverse, comportamentul celor două sisteme ar putea diferi, în special în privința latenței și a calității recuperării. În plus, documentele DocRED sunt codificate integral, însă modelul de embedding trunchiază textul dincolo de aproximativ 256 de token-uri, ceea ce poate ascunde relații aflate în partea finală a documentelor lungi. Trunchierea afectează ambele pipeline-uri în egală măsură, deci comparația rămâne corectă, dar valorile absolute de recall trebuie citite cu această rezervă~\cite{yao2019docred}.
 
-A treia ține de evaluarea calității răspunsului. Metricile folosite (Exact Match și Answer F1) măsoară potrivirea cu referința, dar nu și fidelitatea răspunsului față de contextul recuperat. Evaluarea cu metrici de fidelitate, prevăzută ca extensie, ar oferi o imagine mai completă, mai ales pentru distincția dintre un răspuns corect și un răspuns plauzibil dar nefundamentat.
+A treia ține de evaluarea calității răspunsului. Metricile de potrivire cu referința (Exact Match și Answer F1) nu surprind fidelitatea răspunsului față de contextul recuperat, motiv pentru care a fost adăugată evaluarea RAGAS. Aceasta are însă propriile limite: folosește tot un model lingvistic ca evaluator, din aceeași familie (Qwen3) cu cel care a generat răspunsurile, ceea ce poate introduce o părtinire, iar valorile de fidelitate trebuie interpretate ca relative între cele două sisteme, nu ca scoruri absolute~\cite{es2024ragas}. De asemenea, întrebările fără răspuns folosite pentru testul de halucinație se bazează pe adnotările incomplete ale DocRED, astfel încât o relație presupusă inexistentă poate fi ocazional adevărată, adăugând zgomot acelei metrici~\cite{tan2022redocred}.
