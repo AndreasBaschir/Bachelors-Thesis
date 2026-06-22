@@ -1,269 +1,28 @@
 \chapter{Rezultate experimentale}
 
-Partea aplicativă a lucrării constă într-un demonstrator care pune față în față două arhitecturi RAG: una de bază (Naive RAG) și una cu optimizări de recuperare (Advanced RAG). Ideea de pornire a fost simplă. Dacă vrem să măsurăm cât ajută optimizările de recuperare descrise în Capitolul 1, cel mai curat experiment este să ținem totul constant între cele două sisteme, cu o singură excepție: complexitatea etapei de recuperare. Ambele folosesc același model generativ, același set de date și aceeași bază de cunoștințe. Diferă doar prin felul în care aleg fragmentele pe care le trimit modelului.
+Acest capitol prezintă evaluarea experimentală a celor două arhitecturi descrise în capitolul anterior. Comparația măsoară efectul optimizărilor de recuperare pe două sarcini: răspunsul la întrebări extractiv, pe SQuAD, folosit pentru validarea arhitecturii, și extragerea relațiilor între entități, pe DocRED, sarcina-țintă a lucrării. Sunt raportate metrici de recuperare și de generare, teste de semnificație statistică și o analiză calitativă a comportamentului celor două sisteme. La final, o secțiune dedicată descrie demonstratorul folosit, cu interfața sa și cu modulul de evaluare.
 
-Sistemul rulează integral local, pe hardware propriu, fără apeluri către servicii externe. Această alegere a fost importantă din două motive. Primul ține de reproducibilitate: un model rulat local produce aceleași rezultate de fiecare dată, fără a depinde de versiunea unui API care se poate schimba peste noapte. Al doilea ține de control: avem acces complet la promptul de sistem, la parametrii de recuperare și la fragmentele intermediare, ceea ce face posibilă analiza pas cu pas a comportamentului.
+\section{Evaluarea pe SQuAD}
 
-Acest capitol descrie mai întâi proiectarea sistemului, adică cerințele, tehnologiile, arhitectura și algoritmii celor două pipeline-uri, împreună cu interfața și fluxul utilizatorului. Urmează analiza cantitativă, în care cele două sisteme sunt comparate pe metrici de recuperare și de generare. Evaluarea acoperă două seturi de date: unul de tip întrebare-răspuns extractiv, folosit pentru validarea arhitecturii, și unul de extragere a relațiilor între entități, care corespunde scopului lucrării. Capitolul se încheie cu analiza calitativă, care interpretează rezultatele și discută compromisurile observate.
-
-\section{Proiectarea sistemului}
-
-\subsection{Arhitectura generală}
-
-Sistemul are două faze. Faza offline, executată o singură dată, construiește baza de cunoștințe din setul de date. Faza online, executată la fiecare interogare, recuperează fragmentele relevante și generează răspunsul. Codul este împărțit în module care corespund acestor faze: \texttt{ingest.py} pentru indexare, pachetele \texttt{naive} și \texttt{advanced} pentru cele două pipeline-uri, \texttt{benchmark.py} pentru evaluare și \texttt{main.py} pentru interfață.
-
-Figura~\ref{fig:offline} prezintă faza offline. Setul de date este încărcat, paragrafele sunt deduplicate, apoi codificate și depuse în două indexuri: unul dens în ChromaDB și unul rar, BM25. Ambele pipeline-uri citesc din aceleași indexuri, ceea ce garantează că diferențele de performanță provin din strategia de recuperare, nu din date diferite. Cele două pipeline-uri și fluxul lor de procesare sunt descrise în detaliu mai jos, după prezentarea cerințelor și a tehnologiilor.
-
-\begin{figure}[ht]
-\centering
-\begin{tikzpicture}[
-  node distance=0.55cm and 0.9cm,
-  box/.style={draw, rounded corners, align=center, minimum height=0.9cm,
-              minimum width=2.0cm, font=\small, fill=blue!6},
-  store/.style={draw, cylinder, shape border rotate=90, aspect=0.28,
-                align=center, minimum height=1.0cm, minimum width=1.9cm,
-                font=\small, fill=green!10},
-  arr/.style={-{Latex}, thick}
-]
-\node[box] (squad) {SQuAD\\(HuggingFace)};
-\node[box, right=of squad] (dedup) {Deduplicare\\paragrafe};
-\node[box, right=of dedup] (enc) {Codificare\\MiniLM-L6};
-\node[store, above right=0.3cm and 0.9cm of enc] (chroma) {ChromaDB\\(dens)};
-\node[store, below right=0.3cm and 0.9cm of enc] (bm25) {Index BM25\\(rar)};
-\draw[arr] (squad) -- (dedup);
-\draw[arr] (dedup) -- (enc);
-\draw[arr] (enc) -- (chroma);
-\draw[arr] (enc) -- (bm25);
-\end{tikzpicture}
-\caption{Faza offline de indexare. Paragrafele unice din SQuAD sunt codificate o singură dată și depuse în indexul dens (ChromaDB) și în indexul rar (BM25), folosite în comun de ambele pipeline-uri.}
-\label{fig:offline}
-\end{figure}
-
-\subsection{Cerințe}
-
-Înainte de implementare au fost stabilite câteva cerințe care au ghidat deciziile ulterioare.
-
-Pe partea funcțională, sistemul trebuie să implementeze două pipeline-uri RAG complete, de la interogare la răspuns, peste aceeași bază de cunoștințe. Trebuie să existe o interfață care permite interogarea simultană a ambelor sisteme și afișarea răspunsurilor una lângă alta, astfel încât diferențele să fie vizibile direct. În plus, este nevoie de un modul de evaluare automată care rulează cele două sisteme pe un set de întrebări și calculează metrici comparative.
-
-Pe partea nefuncțională, comparația trebuie să fie corectă, ceea ce înseamnă că singura variabilă între cele două sisteme este arhitectura de recuperare. Rezultatele trebuie să fie reproducibile, motiv pentru care evaluarea rulează local, cu seed-uri fixate. Sistemul trebuie să ruleze pe o singură placă grafică de consum, fără infrastructură distribuită. În fine, codul trebuie organizat modular, cu pipeline-urile separate de interfață și de modulul de evaluare, pentru ca fiecare componentă să poată fi modificată independent.
-
-\subsection{Tehnologii utilizate}
-
-Tabelul~\ref{tab:tehnologii} rezumă tehnologiile folosite și rolul fiecăreia. Alegerile au urmărit instrumente mature, larg folosite în sistemele RAG, care pot rula local.
-
-\begin{table}[ht]
-\centering
-\caption{Tehnologiile utilizate în demonstrator}
-\label{tab:tehnologii}
-\begin{tabular}{lll}
-\toprule
-\textbf{Componentă} & \textbf{Tehnologie} & \textbf{Rol} \\
-\midrule
-Model generativ      & Ollama + Qwen3-8B            & Generarea răspunsului \\
-Expansiune interogări & Qwen3-1.7B                  & Reformularea interogării \\
-Model de embedding   & all-MiniLM-L6-v2            & Codificarea semantică a textului \\
-Reranking            & ms-marco-MiniLM-L-6-v2      & Re-scorarea fragmentelor \\
-Bază vectorială      & ChromaDB                    & Indexare și căutare densă \\
-Indexare rară        & bm25s                       & Căutare BM25 pe cuvinte cheie \\
-Interfață            & Streamlit                   & Interacțiune și vizualizare \\
-Evaluare             & RAGAS, SciPy               & Metrici și teste statistice \\
-Set de date          & SQuAD, DocRED (HuggingFace) & Corpus și întrebări de test \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Modelul generativ este Qwen3-8B~\cite{gao2024retrievalaugmentedgenerationlargelanguage}, rulat prin Ollama. Qwen3 are un mod de raționament (``thinking mode'') care poate fi dezactivat cu directiva \texttt{/no\_think} în prompt. Această opțiune este folosită la expansiunea interogărilor, unde un raționament extins ar încetini procesul fără să aducă un beneficiu real.
-
-Modelul de embedding este \texttt{all-MiniLM-L6-v2}~\cite{karpukhin2020dpr}, un model compact de aproximativ 22 de milioane de parametri care produce vectori de dimensiune 384. Raportul bun între calitate și viteză îl face o alegere des întâlnită în sistemele RAG fără constrângeri hardware mari. Pentru reranking se folosește un cross-encoder din aceeași familie, \texttt{ms-marco-MiniLM-L-6-v2}, antrenat pentru a estima relevanța unei perechi (interogare, pasaj).
-
-\subsection{Configurația hardware}
-\label{subsec:hardware}
-
-Întreg sistemul a fost dezvoltat și evaluat pe o singură stație de lucru, fără infrastructură distribuită. Configurația cuprinde o placă grafică NVIDIA RTX A5000 cu 24 GB de memorie video, un procesor Intel Xeon Silver 4309Y la 2,80 GHz cu 8 nuclee și 16 fire de execuție, 64 GB de memorie RAM și un disc M.2 de 1 TB. Placa grafică rulează atât modelele de embedding și cross-encoder, cât și cele două modele Qwen3 prin Ollama. Cei 24 GB de memorie video sunt suficienți pentru a ține simultan modelul generativ de 8B parametri și modelele auxiliare, fără a le descărca și reîncărca între interogări. Toate valorile de latență raportate în acest capitol au fost măsurate pe această configurație și depind de ea.
-
-\subsection{Indexarea datelor}
-
-Indexarea este realizată de scriptul \texttt{ingest.py} și rulează o singură dată, la instalare. Setul de date SQuAD este încărcat din depozitul HuggingFace, iar paragrafele se repetă, pentru că fiecare apare în mai multe rânduri, câte unul per întrebare. Primul pas elimină aceste duplicate, păstrând fiecare paragraf o singură dată împreună cu titlul articolului din care provine.
-
-Unitatea de bază a corpusului este paragraful SQuAD, indexat ca atare. Nu se aplică o fragmentare suplimentară, deoarece paragrafele SQuAD au deja o lungime potrivită pentru recuperare, suficient de scurte pentru a fi specifice și suficient de lungi pentru a păstra contextul răspunsului. Paragrafele unice sunt codificate în loturi de 256 cu modelul MiniLM și depuse în ChromaDB, configurat cu spațiu cosinus pentru similaritate. În paralel, textul brut al acelorași paragrafe este tokenizat și indexat cu BM25. Indexul BM25 se construiește la prima utilizare și se salvează pe disc, astfel încât pornirile ulterioare să nu îl reconstruiască.
-
-\subsection{Pipeline-ul Naive RAG}
-
-Naive RAG urmează cel mai simplu traseu posibil, cel din formularea originală a RAG~\cite{lewis2020rag}: codifică interogarea, caută cele mai apropiate fragmente prin similaritate cosinus și le trimite modelului generativ. Nu există reformulare, recuperare hibridă sau reranking. Pașii, ilustrați în Figura~\ref{fig:naive}, sunt următorii.
-
-\begin{enumerate}
-    \item Interogarea este codificată cu \texttt{all-MiniLM-L6-v2} într-un vector de dimensiune 384.
-    \item ChromaDB returnează primele $K=5$ fragmente după similaritate cosinus.
-    \item Fragmentele sunt concatenate și incluse într-un prompt împreună cu interogarea.
-    \item Qwen3-8B generează răspunsul, instruit prin promptul de sistem să folosească exclusiv contextul furnizat.
-\end{enumerate}
-
-\begin{figure}[ht]
-\centering
-\begin{tikzpicture}[
-  node distance=0.5cm and 0.6cm,
-  box/.style={draw, rounded corners, align=center, minimum height=0.85cm,
-              minimum width=2.3cm, font=\small, fill=blue!6},
-  store/.style={draw, cylinder, shape border rotate=90, aspect=0.28,
-                align=center, minimum height=0.95cm, minimum width=2.0cm,
-                font=\small, fill=green!10},
-  gen/.style={draw, rounded corners, align=center, minimum height=0.85cm,
-              minimum width=2.3cm, font=\small, fill=green!10},
-  arr/.style={-{Latex}, thick}
-]
-\node[box] (q) {Interogare $q$};
-\node[box, right=of q] (enc) {Codificare\\MiniLM-L6};
-\node[box, right=of enc] (search) {Căutare cosinus\\top-5};
-\node[store, above=0.55cm of search] (chroma) {ChromaDB};
-\node[gen, right=of search] (gen) {Generare\\Qwen3-8B};
-\node[box, right=of gen] (ans) {Răspuns};
-\draw[arr] (q) -- (enc);
-\draw[arr] (enc) -- (search);
-\draw[arr] (chroma) -- (search);
-\draw[arr] (search) -- (gen);
-\draw[arr] (gen) -- (ans);
-\end{tikzpicture}
-\caption{Fluxul de procesare Naive RAG. Interogarea este codificată, cele mai apropiate cinci fragmente sunt căutate prin similaritate cosinus în ChromaDB și trimise direct modelului generativ, fără reformulare, recuperare hibridă sau reranking.}
-\label{fig:naive}
-\end{figure}
-
-Promptul de sistem cere modelului să răspundă doar pe baza contextului și să refuze explicit dacă informația lipsește. Acest baseline are limitările cunoscute din literatură~\cite{gao2024retrievalaugmentedgenerationlargelanguage}: ratează termenii rari pe care similaritatea semantică îi diluează și nu filtrează fragmentele irelevante recuperate din greșeală.
-
-\subsection{Pipeline-ul Advanced RAG}
-
-Advanced RAG adaugă patru etape peste varianta de bază: expansiunea interogării, recuperarea hibridă, fuziunea rezultatelor și rerankingul. Figura~\ref{fig:advanced} prezintă fluxul complet, iar Tabelul~\ref{tab:parametri} listează parametrii folosiți.
-
-\begin{figure}[ht]
-\centering
-\begin{tikzpicture}[
-  node distance=0.5cm and 0.7cm,
-  box/.style={draw, rounded corners, align=center, minimum height=0.8cm,
-              minimum width=4.2cm, font=\small, fill=orange!9},
-  small/.style={draw, rounded corners, align=center, minimum height=0.8cm,
-                minimum width=2.6cm, font=\small, fill=blue!6},
-  gen/.style={draw, rounded corners, align=center, minimum height=0.8cm,
-              minimum width=4.2cm, font=\small, fill=green!10},
-  arr/.style={-{Latex}, thick}
-]
-\node[box] (q) {Interogare $q$};
-\node[box, below=of q] (exp) {Expansiune interogări (Qwen3-1.7B)};
-\node[box, below=of exp] (variants) {Interogări: $q$, $q_1$, $q_2$};
-\node[small, below left=0.6cm and 0.1cm of variants] (dense) {Recuperare densă\\top-20 (ChromaDB)};
-\node[small, below right=0.6cm and 0.1cm of variants] (sparse) {Recuperare BM25\\top-20};
-\node[box, below=1.5cm of variants] (rrf) {Reciprocal Rank Fusion ($k=60$)};
-\node[box, below=of rrf] (pool) {Primii 40 de candidați};
-\node[box, below=of pool] (rerank) {Reranking cross-encoder};
-\node[box, below=of rerank] (top5) {Primele 5 fragmente};
-\node[gen, below=of top5] (generate) {Generare Qwen3-8B};
-\node[gen, below=of generate] (answer) {Răspuns};
-\draw[arr] (q) -- (exp);
-\draw[arr] (exp) -- (variants);
-\draw[arr] (variants) -- (dense);
-\draw[arr] (variants) -- (sparse);
-\draw[arr] (dense) -- (rrf);
-\draw[arr] (sparse) -- (rrf);
-\draw[arr] (rrf) -- (pool);
-\draw[arr] (pool) -- (rerank);
-\draw[arr] (rerank) -- (top5);
-\draw[arr] (top5) -- (generate);
-\draw[arr] (generate) -- (answer);
-\end{tikzpicture}
-\caption{Fluxul de procesare Advanced RAG. Interogarea este reformulată, fiecare variantă este căutată dens și prin BM25, rezultatele sunt fuzionate prin Reciprocal Rank Fusion, re-scorate cu un cross-encoder, iar primele cinci fragmente sunt trimise modelului generativ.}
-\label{fig:advanced}
-\end{figure}
-
-\begin{table}[ht]
-\centering
-\caption{Parametrii pipeline-ului Advanced RAG}
-\label{tab:parametri}
-\begin{tabular}{lcl}
-\toprule
-\textbf{Parametru} & \textbf{Valoare} & \textbf{Semnificație} \\
-\midrule
-Reformulări ale interogării & 2  & Variante generate pe lângă interogarea originală \\
-Candidați denși per variantă & 20 & Fragmente returnate de ChromaDB \\
-Candidați BM25 per variantă  & 20 & Fragmente returnate de BM25 \\
-Constanta RRF                & 60 & Parametrul $k$ din fuziune \\
-Dimensiunea pool-ului        & 40 & Candidați trimiși la reranking \\
-Fragmente finale             & 5  & Fragmente trimise modelului generativ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Prima etapă este expansiunea interogării. Un model mic, Qwen3-1.7B, generează două reformulări ale interogării originale. Scopul este reducerea dependenței de formularea exactă a întrebării: dacă utilizatorul folosește alți termeni decât cei din document, o reformulare bună poate recupera totuși fragmentul corect. Modelul mic a fost ales deliberat, pentru că reformularea nu cere raționament complex, iar acest apel se află pe calea critică a fiecărei interogări.
-
-A doua etapă este recuperarea hibridă. Pentru fiecare dintre cele trei interogări (originala și cele două reformulări) se execută în paralel o căutare densă în ChromaDB și o căutare BM25, fiecare returnând câte 20 de candidați. Recuperarea densă prinde asemănările de sens, iar BM25~\cite{robertson2009bm25} prinde potrivirile lexicale exacte, utile pentru termeni rari, numere și denumiri proprii. Cele șase căutări rulează concurent, pe fire de execuție separate, pentru a limita timpul total.
-
-A treia etapă fuzionează cele șase liste de rezultate prin Reciprocal Rank Fusion~\cite{cormack2009rrf}. Fiecare fragment primește un scor care însumează contribuțiile din toate listele în care apare, după formula
-\begin{equation}
-\text{RRF}(d) = \sum_{l} \frac{1}{k + r_l(d)},
-\label{eq:rrf}
-\end{equation}
-unde $r_l(d)$ este rangul fragmentului $d$ în lista $l$, iar $k=60$. Constanta $k$ atenuează influența pozițiilor de top, astfel încât un fragment aflat constant pe locuri bune în mai multe liste să fie favorizat față de unul aflat pe primul loc într-o singură listă. După fuziune se păstrează primii 40 de candidați.
-
-A patra etapă este rerankingul. Cross-encoderul \texttt{ms-marco-MiniLM-L-6-v2} primește perechea (interogare, fragment) și produce un scor de relevanță. Spre deosebire de modelul de embedding, care codifică separat interogarea și fragmentul, cross-encoderul le procesează împreună, ceea ce dă o estimare mai precisă a relevanței, dar cu un cost de calcul mai mare. Din acest motiv el se aplică doar celor 40 de candidați rămași, nu întregului corpus. Primele cinci fragmente după rerankingul cross-encoder ajung la modelul generativ, care produce răspunsul cu același prompt de grounding ca în varianta Naive.
-
-\subsection{Interfața și fluxul utilizatorului}
-
-Interfața este construită cu Streamlit și are forma unei conversații. Utilizatorul scrie o întrebare, iar răspunsurile celor două sisteme apar una lângă alta, pe două coloane, fiecare cu timpul de generare afișat deasupra. Această așezare face comparația imediată: pe aceeași întrebare se vede direct cum diferă răspunsurile și cât durează fiecare.
-
-La pornire, interfața încarcă o singură dată modelele și indexul BM25 și le păstrează în memorie printr-un mecanism de cache. Fără acest pas, fiecare interogare ar reîncărca modelele de pe disc, ceea ce ar face interacțiunea inutilizabil de lentă. Când utilizatorul trimite o întrebare, sistemul recuperează fragmentele pentru ambele pipeline-uri, apoi generează cele două răspunsuri în paralel, pe fire de execuție separate, ca să nu aștepte un sistem după celălalt. Răspunsurile sunt apoi adăugate în istoricul conversației, păstrat pe durata sesiunii.
-
-Legătura dintre interfață și arhitectura RAG este directă. Coloana din stânga apelează pipeline-ul Naive, cea din dreapta pipeline-ul Advanced, iar ambele citesc din aceleași indexuri construite în faza offline. Interfața nu conține logică de recuperare proprie; ea doar orchestrează apelurile către cele două module și afișează rezultatele. Figurile~\ref{fig:ui-principal} și~\ref{fig:ui-exemplu} prezintă interfața în uz.
-
-\begin{figure}[ht]
-\centering
-\includegraphics[width=\linewidth]{Imagini/ui_naive_no_answer.png}
-\caption{Interfața comparativă a demonstratorului. Cele două coloane corespund pipeline-urilor Naive și Advanced, care răspund simultan la aceeași întrebare, cu timpii de generare afișați deasupra fiecărui răspuns. În acest exemplu, Naive RAG nu găsește răspunsul, în timp ce Advanced RAG recuperează fragmentul corect.}
-\label{fig:ui-principal}
-\end{figure}
-
-\begin{figure}[ht]
-\centering
-\includegraphics[width=\linewidth]{Imagini/ui_naive_hallucinate_numeric.png}
-\caption{Exemplu de interogare cu termeni numerici. Naive RAG produce un răspuns numeric halucinat, deoarece similaritatea cosinus ratează valoarea exactă, în timp ce Advanced RAG găsește valoarea corectă prin recuperarea BM25.}
-\label{fig:ui-exemplu}
-\end{figure}
-
-\subsection{Modulul de evaluare}
-
-Pe lângă cele două pipeline-uri și interfață, demonstratorul include un modul de evaluare automată, implementat în scriptul \texttt{benchmark.py}. Rolul lui este să ruleze ambele sisteme pe același eșantion de întrebări și să producă metricile, testele statistice și figurile raportate în acest capitol, fără intervenție manuală.
-
-Modulul funcționează în bucle imbricate: pentru fiecare seed se extrage un eșantion de întrebări din SQuAD, iar pentru fiecare întrebare se rulează ambele pipeline-uri și se înregistrează fragmentele recuperate, timpul de procesare și, opțional, răspunsul generat. Evaluarea răspunsurilor este opțională tocmai pentru că generarea este pasul cel mai lent: metricile de recuperare se pot calcula rapid și separat, fără apeluri la modelul generativ.
-
-O decizie de implementare care s-a dovedit utilă este salvarea de checkpoint: după fiecare seed, rezultatele parțiale se scriu pe disc printr-o înlocuire atomică de fișier, astfel încât o întrerupere în timpul rulării (care poate dura ore cu generarea activată) să nu piardă seed-urile deja terminate. O alta privește tratarea refuzurilor la evaluarea cu RAGAS: răspunsurile în care sistemul declară explicit că informația lipsește din context sunt excluse de la metrica de relevanță, deoarece un refuz corect ar fi altfel penalizat ca un răspuns nerelevant, ceea ce ar distorsiona comparația în defavoarea sistemului mai prudent.
-
-La final, modulul agregă rezultatele pe toate seed-urile, calculează media și deviația standard pentru fiecare metrică, rulează testele de semnificație pe perechile de rezultate și generează automat figurile comparative în format PDF și PNG, gata de inclus în lucrare.
-
-\subsection{Procesul de dezvoltare}
-
-Implementarea a pornit cu varianta minimă funcțională: indexarea datelor SQuAD în ChromaDB și un pipeline Naive conectat la interfața Streamlit. Abia după ce baseline-ul funcționa de la cap la coadă au fost adăugate, una câte una, componentele Advanced RAG, ca să se poată vedea la fiecare pas ce aduce fiecare optimizare.
-
-Prima extensie a fost recuperarea sparse cu BM25~\cite{robertson2009bm25}. Inițial s-a folosit biblioteca \texttt{rank\_bm25}, dar aceasta a fost înlocuită cu \texttt{bm25s}, mult mai rapidă prin tokenizare în loturi și indexare optimizată. Pentru că reconstruirea indexului la fiecare pornire era costisitoare, indexul se calculează o singură dată și se salvează pe disc.
-
-Configurarea cross-encoderului a cerut câteva încercări. Au fost testate mai multe modele de reranking, inclusiv o variantă mai mare, abandonată în favoarea lui \texttt{ms-marco-MiniLM-L-6-v2}, care oferă un compromis bun între precizie și viteză. Pool-ul de candidați trimiși la reranking a crescut de la 20 la 40 pe parcurs, după ce s-a observat că un pool mai mic tăia uneori fragmentele relevante înainte ca cross-encoderul să le poată evalua.
-
-Expansiunea interogărilor a trecut și ea prin ajustări. Modelul de reformulare a fost schimbat pe Qwen3-1.7B, iar recuperările pentru variantele de interogare au fost paralelizate, pentru că rularea lor secvențială dubla timpul de răspuns. Toate aceste decizii sunt vizibile în istoricul de versiuni al proiectului, unde fiecare modificare corespunde unui pas în rafinarea pipeline-ului.
-
-În final, modulul de evaluare a fost construit cu suport pentru mai multe seed-uri și checkpoint după fiecare rulare, astfel încât o întrerupere să nu piardă rezultatele deja calculate. Testele de semnificație statistică (Wilcoxon și McNemar) au fost adăugate ulterior, pentru a verifica dacă diferențele observate sunt reale sau doar artefacte ale eșantionării aleatoare.
-
-\section{Analiză cantitativă}
+SQuAD este benchmark-ul de referință al lucrării, folosit pentru a valida arhitectura înainte de sarcina-țintă, extragerea relațiilor între entități, prezentată în Secțiunea~\ref{sec:docred}. Această secțiune prezintă mai întâi rezultatele cantitative, apoi interpretarea lor calitativă.
 
 \subsection{Configurarea experimentului}
 
 Evaluarea a rulat pe câte 150 de întrebări selectate aleator din split-ul de antrenare SQuAD~\cite{rajpurkar-etal-2016-squad}, pe 4 seed-uri distincte (42, 1042, 2042, 3042), totalizând 600 de evaluări per sistem. Rularea pe mai multe seed-uri permite estimarea variabilității și raportarea mediei împreună cu deviația standard, în loc de o singură cifră care ar putea depinde de eșantionul ales.
 
-Metricile calculate sunt:
+Metricile calculate acoperă atât recuperarea, cât și generarea.
 
-\begin{itemize}
-    \item \textbf{Context Recall@5}: fracția de întrebări pentru care cel puțin unul din cei $K{=}5$ candidați recuperați conține răspunsul corect și provine din articolul corect. Condiția privind sursa este necesară pentru a preveni potrivirile false pe fragmente scurte și frecvente (de exemplu, ``mai'' sau ``SUA'') care pot apărea în contexte complet diferite~\cite{rajpurkar-etal-2016-squad}.
-    \item \textbf{Mean Reciprocal Rank (MRR)}: inversul rangului primului fragment relevant, mediat pe toate întrebările~\cite{karpukhin2020dpr}. MRR penalizează sistemele care plasează fragmentul corect pe poziții inferioare în lista de rezultate.
-    \item \textbf{Answer F1}: scorul $F_1$ la nivel de token între răspunsul generat și răspunsurile de referință SQuAD, calculat ca maxim peste toate variantele de referință disponibile.
-    \item \textbf{Exact Match}: proporția de răspunsuri generate care conțin textul de referință ca subșir exact, după normalizarea majusculelor și a semnelor de punctuație.
-    \item \textbf{Latența medie de recuperare}: timpul de procesare a interogării în milisecunde. Pentru Advanced RAG, aceasta include apelul LLM pentru expansiunea interogării, recuperarea hibridă paralelă și re-scorarea cu cross-encoder.
-\end{itemize}
+Context Recall@5 este fracția de întrebări pentru care cel puțin unul dintre cei $K{=}5$ candidați recuperați conține răspunsul corect și provine din articolul corect. Condiția privind sursa este necesară pentru a preveni potrivirile false pe fragmente scurte și frecvente, precum „mai” sau „SUA”, care pot apărea în contexte complet diferite~\cite{rajpurkar-etal-2016-squad}.
 
-Pentru testarea semnificației statistice s-au aplicat două teste pereche pe cele 600 de înregistrări combinate din toate seed-urile. Testul Wilcoxon signed-rank a fost aplicat pe metricile continue (MRR și Answer F1), iar testul McNemar pe metricile binare (Context Recall și Exact Match)~\cite{gao2024retrievalaugmentedgenerationlargelanguage}.
+Mean Reciprocal Rank (MRR) este inversul rangului primului fragment relevant, mediat pe toate întrebările~\cite{karpukhin2020dpr}. MRR penalizează sistemele care plasează fragmentul corect pe poziții inferioare în lista de rezultate.
+
+Answer F1 este scorul $F_1$ la nivel de token între răspunsul generat și răspunsurile de referință SQuAD, calculat ca maxim peste toate variantele de referință disponibile.
+
+Exact Match este proporția de răspunsuri generate care conțin textul de referință ca subșir exact, după normalizarea majusculelor și a semnelor de punctuație.
+
+În fine, latența medie de recuperare măsoară timpul de procesare a interogării în milisecunde. Pentru Advanced RAG, aceasta include apelul LLM pentru expansiunea interogării, recuperarea hibridă paralelă și re-scorarea cu cross-encoder.
+
+Pentru testarea semnificației statistice s-au aplicat două teste pereche pe cele 600 de înregistrări combinate din toate seed-urile. Testul Wilcoxon signed-rank a fost aplicat pe metricile continue (MRR și Answer F1), iar testul McNemar pe metricile binare (Context Recall și Exact Match).
 
 \subsection{Asigurarea unei comparații corecte}
 
@@ -370,7 +129,44 @@ Pentru a verifica dacă diferențele nu depind de un eșantion particular de în
 
 Se observă că Advanced RAG depășește Naive RAG pe fiecare seed în parte, nu doar în medie. Variația între seed-uri este mică pentru ambele sisteme (sub 2 puncte procentuale la Context Recall pentru Naive și sub 3,5 pentru Advanced), ceea ce arată că rezultatele sunt stabile și nu depind de un eșantion norocos. Această consistență întărește concluzia testelor de semnificație: avantajul arhitecturii avansate este real și reproductibil.
 
+\subsection{Unde ajută recuperarea hibridă}
+
+Diferența cea mai pronunțată dintre cele două sisteme apare la metricile de recuperare, nu la cele de generare. Pe SQuAD, creșterea cu 12,0 puncte la Context Recall înseamnă că, în aproximativ 12 din 100 de cazuri, Advanced RAG găsește fragmentul corect acolo unde Naive RAG îl ratează. MRR crescut de la 0,719 la 0,904 arată că, pe lângă faptul că găsește mai des fragmentul corect, îl și plasează pe poziții mai înalte.
+
+Recuperarea hibridă (densă + BM25) are un avantaj clar pe interogările cu termeni specifici: date, numere, denumiri proprii, acronime. Modelul de embedding codifică sensul textului, dar poate dilua termenii rari într-un spațiu vectorial continuu unde similaritatea cosinus favorizează documentele apropiate tematic, nu neapărat identice lexical. BM25~\cite{robertson2009bm25} nu are această problemă: un termen care apare exact o dată în corpus va fi regăsit cu precizie dacă apare și în interogare. Expansiunea interogărilor contribuie la recall prin acoperirea variantelor de formulare, reducând dependența de formularea exactă a întrebării~\cite{gao2024retrievalaugmentedgenerationlargelanguage}.
+
+\subsection{Decalajul dintre recuperare și generare}
+
+Îmbunătățirile la recuperare nu se traduc proporțional în îmbunătățiri la generare. Pe SQuAD, Context Recall crește cu 12 puncte procentuale, dar Answer F1 crește cu doar ~7\% relativ, iar Exact Match cu ~10\%.
+
+Valoarea absolută scăzută a lui Answer F1, în jur de 0,2, vine din modul în care este calculată metrica, nu dintr-o calitate slabă a răspunsurilor. Answer F1 măsoară suprapunerea de token-uri dintre răspunsul generat și fragmentul de referință din SQuAD, care este de obicei foarte scurt, de unul sau două cuvinte. Modelul generativ răspunde însă în propoziții complete și tinde să parafrazeze, nu să reproducă textual fragmentul: la întrebarea „Unde s-a născut Einstein?", referința este „Ulm", dar modelul produce „Albert Einstein s-a născut la Ulm". Răspunsul este corect, dar conține multe token-uri în plus față de referință, ceea ce coboară F1 chiar și atunci când răspunsul este corect semantic. Exact Match, care verifică doar dacă referința apare ca subșir în răspuns, nu este afectat de aceste token-uri suplimentare și de aceea rămâne mult mai mare (0,745 față de 0,205).
+
+Îmbunătățirea modestă a lui Answer F1 are o explicație separată: Naive RAG recuperează corect fragmentul în 83,5\% din cazuri, deci modelul generativ primea oricum contextul potrivit pentru cea mai mare parte a întrebărilor. Câștigul din Advanced RAG vine tocmai din cazurile dificile, adică interogările cu termeni rari sau cu răspunsuri scurte greu de localizat prin similaritate semantică pură, unde generarea oricum eșuează mai des.
+
+\subsection{Observații calitative din interfața Streamlit}
+
+Interfața Streamlit permite observarea directă a diferențelor de comportament fără a parcurge metricile agregate.
+
+Pe întrebări cu termeni numerici sau coduri specifice („Câte specii...”, „În ce an...”, „Care este codul...”), Naive RAG returnează adesea fragmente tematic relevante care nu conțin numărul exact. Advanced RAG găsește fragmentul corect prin BM25, care tratează numerele ca termeni distincți și nu le diluează în spațiu vectorial.
+
+Când răspunsul nu există în corpus, ambele sisteme refuză explicit. Diferența este că Advanced RAG produce mai rar răspunsuri parțiale construite din context adiacent irelevant, deoarece cross-encoder-ul elimină candidații slab relevanți înainte de generare.
+
+Pe întrebări tematice generale („Despre ce este...”, „Care este rolul...”), ambele sisteme produc rezultate similare. Recuperarea densă funcționează bine pe similitudine semantică, iar avantajul hibridizării este mai puțin pronunțat în aceste cazuri.
+
+Aceste observații sunt consistente cu rezultatele cantitative: câștigurile Advanced RAG sunt mai mari pe cazurile dificile (termeni rari, răspunsuri numerice) și mai mici pe interogările tematice generale, unde recuperarea densă funcționează deja bine~\cite{gao2024retrievalaugmentedgenerationlargelanguage,robertson2009bm25}.
+
+\subsection{Analiza erorilor}
+
+Deși Advanced RAG depășește Naive RAG în ansamblu, testul McNemar arată că există și cazuri în care varianta de bază răspunde corect, iar cea avansată nu. La Exact Match, 20 de întrebări sunt rezolvate de Naive RAG, dar ratate de Advanced RAG, față de 82 în situația inversă. La Context Recall, raportul este de doar 2 la 74. Aceste cazuri minoritare merită analizate, deoarece arată limitele optimizărilor.
+
+O primă sursă de erori ține de expansiunea interogărilor. Atunci când modelul de reformulare produce variante care se îndepărtează de sensul original, recuperarea hibridă poate aduce fragmente relevante pentru reformulare, dar nu pentru întrebarea reală. În aceste situații, simplitatea recuperării dense a Naive RAG, care lucrează direct cu interogarea originală, devine un avantaj. Acest fenomen explică o parte din cele 20 de cazuri unde Naive RAG obține Exact Match, iar Advanced RAG nu.
+
+O a doua sursă ține de reranking. Cross-encoderul reordonează fragmentele după relevanța estimată, dar estimarea nu este perfectă: ocazional, un fragment care conține răspunsul exact este plasat sub pragul de cinci fragmente, în timp ce recuperarea densă simplă l-ar fi păstrat. Aceste erori sunt rare, dar reale, și ilustrează că o etapă suplimentară de procesare nu garantează întotdeauna un rezultat mai bun pe fiecare interogare în parte.
+
+A treia categorie ține de natura metricii Exact Match. O parte din diferențele observate nu reflectă răspunsuri greșite, ci reformulări: ambele sisteme pot produce un răspuns corect semantic, dar care nu se potrivește exact cu referința. În aceste cazuri, diferența la Exact Match este un artefact al metricii, nu o eroare reală de extragere. Această observație întărește argumentul că o evaluare completă necesită și metrici care tolerează reformularea, precum cele bazate pe fidelitate.
+
 \section{Evaluarea pe extragerea relațiilor între entități}
+\label{sec:docred}
 
 Evaluarea pe SQuAD validează arhitectura pe o sarcină de tip întrebare-răspuns extractiv, dar nu măsoară direct scopul lucrării, extragerea relațiilor între entități. Pentru a testa exact această capacitate, demonstratorul a fost extins cu o a doua evaluare, pe setul de date DocRED~\cite{yao2019docred}, un corpus de extragere a relațiilor la nivel de document.
 
@@ -378,11 +174,11 @@ Evaluarea pe SQuAD validează arhitectura pe o sarcină de tip întrebare-răspu
 
 DocRED (Document-Level Relation Extraction Dataset)~\cite{yao2019docred} conține documente Wikipedia adnotate manual, fiecare cu un set de entități și o listă de relații sub formă de triplete (subiect, relație, obiect), împreună cu propozițiile care susțin fiecare relație. Spre deosebire de seturile de extragere a relațiilor la nivel de propoziție, DocRED cere identificarea unor relații care se întind uneori pe mai multe propoziții, ceea ce îl apropie de scenariile reale de extragere a cunoștințelor~\cite{yao2019docred}.
 
-Pentru a folosi aceeași infrastructură de evaluare ca în cazul SQuAD, fiecare triplet a fost reformulat ca întrebare, după modelul extragerii relațiilor prin citire (reading comprehension)~\cite{levy2017zeroshot}. Dintr-un triplet (entitate-cap, relație, entitate-coadă) se construiește o întrebare de forma ,,Care este {relația} a entității {entitate-cap}?'', iar răspunsul așteptat este entitatea-coadă, cu toate formele ei de suprafață acceptate ca variante corecte. Documentul sursă devine contextul de referință, iar titlul lui servește la verificarea sursei, la fel ca în SQuAD. Această formulare corespunde sarcinii de completare a unui câmp lipsă (slot filling), în care modelul primește capul și tipul relației și trebuie să producă coada~\cite{levy2017zeroshot, zhang2017tacred}. Pentru fiecare document se păstrează un singur triplet, ales determinist, astfel încât unitatea de evaluare să rămână identică cu cea din SQuAD, o întrebare per document. Corpusul indexat în ChromaDB este format din documentele DocRED, deduplicate după titlu.
+Pentru a folosi aceeași infrastructură de evaluare ca în cazul SQuAD, fiecare triplet a fost reformulat ca întrebare, după modelul extragerii relațiilor prin citire (reading comprehension)~\cite{levy2017zeroshot}. Dintr-un triplet (entitate-cap, relație, entitate-coadă) se construiește o întrebare de forma „Care este {relația} a entității {entitate-cap}?”, iar răspunsul așteptat este entitatea-coadă, cu toate formele ei de suprafață acceptate ca variante corecte. Documentul sursă devine contextul de referință, iar titlul lui servește la verificarea sursei, la fel ca în SQuAD. Această formulare corespunde sarcinii de completare a unui câmp lipsă (slot filling), în care modelul primește capul și tipul relației și trebuie să producă coada~\cite{levy2017zeroshot, zhang2017tacred}. Pentru fiecare document se păstrează un singur triplet, ales determinist, astfel încât unitatea de evaluare să rămână identică cu cea din SQuAD, o întrebare per document. Corpusul indexat în ChromaDB este format din documentele DocRED, deduplicate după titlu.
 
 Pe plan tehnic, adăugarea celui de-al doilea set de date a presupus separarea logicii de date de cele două pipeline-uri, care erau legate inițial de o singură colecție. Fiecare set de date are acum propria colecție ChromaDB și propriul index BM25, astfel încât recuperarea să nu amestece niciodată documente din surse diferite. Ambele pipeline-uri rezolvă colecția activă în momentul interogării, în funcție de setul de date selectat la pornire.
 
-Evaluarea pe DocRED a folosit câte 100 de întrebări pe fiecare dintre cele 3 seed-uri (42, 1042, 2042), totalizând 300 de întrebări, dintre care 204 cu răspuns în corpus și 96 fără răspuns. Întrebările fără răspuns au fost construite prin asocierea unei entități reale cu o relație pe care documentul ei nu o conține, aleasă determinist din vocabularul celor 96 de tipuri de relații din DocRED~\cite{yao2019docred}. Aceste cazuri testează direct comportamentul de refuz al sistemului: răspunsul corect este abținerea. Trebuie remarcat că adnotările DocRED nu sunt exhaustive, deci o relație considerată inexistentă poate fi uneori adevărată în realitate, ceea ce adaugă zgomot acestei metrici~\cite{tan2022redocred}. Spre deosebire de evaluarea pe SQuAD, modelele de embedding și de reranking au rulat pe procesor, lăsând întreaga memorie a plăcii grafice modelelor lingvistice; din acest motiv latențele absolute raportate pe DocRED sunt mai mari decât cele din Secțiunea~\ref{subsec:hardware}.
+Evaluarea pe DocRED a folosit câte 100 de întrebări pe fiecare dintre cele 3 seed-uri (42, 1042, 2042), totalizând 300 de întrebări, dintre care 204 cu răspuns în corpus și 96 fără răspuns. Întrebările fără răspuns au fost construite prin asocierea unei entități reale cu o relație pe care documentul ei nu o conține, aleasă determinist din vocabularul celor 96 de tipuri de relații din DocRED~\cite{yao2019docred}. Aceste cazuri testează direct comportamentul de refuz al sistemului: răspunsul corect este abținerea. Trebuie remarcat că adnotările DocRED nu sunt exhaustive, deci o relație considerată inexistentă poate fi uneori adevărată în realitate, ceea ce adaugă zgomot acestei metrici~\cite{tan2022redocred}. Spre deosebire de evaluarea pe SQuAD, modelele de embedding și de reranking au rulat pe procesor, lăsând întreaga memorie a plăcii grafice modelelor lingvistice; din acest motiv latențele absolute raportate pe DocRED sunt mai mari decât cele de pe SQuAD, măsurate cu modelele auxiliare pe placa grafică descrisă în Secțiunea~\ref{sec:hardware}.
 
 \subsection{Rezultate pe recuperare și generare}
 
@@ -484,55 +280,21 @@ Figura~\ref{fig:docred_radar} sintetizează metricile de calitate pe DocRED, cu 
     \label{fig:docred_radar}
 \end{figure}
 
-\section{Analiză calitativă}
+\section{Discuție și limitări}
 
 \subsection{Compromisul dintre calitate și latență}
 
-Cel mai vizibil cost al arhitecturii avansate este latența de recuperare: 769 ms față de 16 ms pentru varianta de bază, o creștere de aproximativ 50 de ori, măsurată pe configurația hardware din Secțiunea~\ref{subsec:hardware}. Această diferență are câteva surse distincte. Expansiunea interogărilor implică un apel LLM (Qwen3-1.7B), care durează câteva sute de milisecunde chiar și pentru un model de 1.7B parametri. Recuperarea densă și BM25 rulează în paralel pe toate cele trei formulări (originală plus două alternative), ceea ce limitează parțial impactul, dar cross-encoder-ul introduce o latență suplimentară pentru re-scorarea celor 40 de candidați.
+Cel mai vizibil cost al arhitecturii avansate este latența de recuperare: pe SQuAD, 769 ms față de 16 ms pentru varianta de bază, o creștere de aproximativ 50 de ori, măsurată pe configurația hardware din Secțiunea~\ref{sec:hardware}. Pe DocRED, latențele absolute sunt mai mari, în jur de 2090 ms pentru Advanced, deoarece modelele auxiliare au rulat pe procesor, însă raportul dintre cele două sisteme se păstrează. Această diferență are câteva surse distincte. Expansiunea interogărilor implică un apel LLM (Qwen3-1.7B), care durează câteva sute de milisecunde chiar și pentru un model de 1,7B parametri. Recuperarea densă și BM25 rulează în paralel pe toate cele trei formulări (originală plus două alternative), ceea ce limitează parțial impactul, dar cross-encoder-ul introduce o latență suplimentară pentru re-scorarea celor 40 de candidați.
 
 Defalcarea acestei latențe este instructivă. Componenta dominantă este apelul la modelul de expansiune a interogărilor, care, deși folosește un model mic, presupune o generare completă și consumă cea mai mare parte din cele ~770 ms. Recuperarea densă și BM25 rulează în paralel pe cele trei formulări și contribuie relativ puțin, fiind operații de căutare optimizate. Rerankingul cu cross-encoder adaugă un cost intermediar, proporțional cu numărul de candidați evaluați, în cazul de față 40. Naive RAG evită toate aceste etape, ceea ce explică latența sa de doar 16 ms, formată aproape integral din codificarea interogării și căutarea cosinus.
 
 În contextul aplicațiilor RAG reale, o latență de recuperare de ~770 ms rămâne acceptabilă, deoarece generarea unui răspuns cu un model de 8B parametri durează oricum mai multe secunde. Totuși, în scenarii unde se doresc timpi de răspuns sub o secundă, overhead-ul expansiunii interogărilor devine o constrângere reală și ar putea fi eliminat printr-o versiune fără expansiune, care combină recuperarea hibridă fără reformulare~\cite{gao2024retrievalaugmentedgenerationlargelanguage}. Această observație sugerează că expansiunea interogărilor ar trebui activată selectiv, doar pentru interogările unde aduce un câștig real de recall, nu pentru fiecare cerere.
 
-\subsection{Unde ajută recuperarea hibridă}
-
-Diferența cea mai pronunțată dintre cele două sisteme apare la metricile de recuperare, nu la cele de generare. Creșterea cu 12,0 puncte la Context Recall înseamnă că, în 12 din 100 de cazuri unde Naive RAG eșuează, Advanced RAG găsește totuși fragmentul corect. MRR crescut de la 0,719 la 0,904 arată că, pe lângă faptul că găsește mai des fragmentul corect, îl și plasează pe poziții mai înalte.
-
-Recuperarea hibridă (densă + BM25) are un avantaj clar pe interogările cu termeni specifici: date, numere, denumiri proprii, acronime. Modelul de embedding codifică înțeles semantic, dar poate dilua termeni rari într-un spațiu vectorial continuu unde similaritatea cosinus favorizează documente tematic apropiate, nu neapărat lexical identice. BM25~\cite{robertson2009bm25} nu are această problemă: un termen care apare exact o dată în corpus va fi regăsit cu precizie dacă apare și în interogare. Expansiunea interogărilor contribuie la recall prin acoperirea variantelor de formulare, reducând dependența de formularea exactă a întrebării~\cite{gao2024retrievalaugmentedgenerationlargelanguage}.
-
-\subsection{Decalajul dintre recuperare și generare}
-
-Îmbunătățirile la recuperare nu se traduc proporțional în îmbunătățiri la generare. Context Recall crește cu 12 puncte procentuale, dar Answer F1 crește cu doar ~7\% relativ, iar Exact Match cu ~10 puncte procentuale.
-
-Explicația principală este că SQuAD a fost conceput ca benchmark pentru citire extractivă, unde modelul ar trebui să extragă textual un fragment din pasaj. Modelele generative moderne tind să parafrazeze răspunsul mai degrabă decât să îl reproducă cuvânt cu cuvânt, ceea ce scade Answer F1 față de valoarea maximă posibilă, chiar dacă răspunsul este corect semantic. O a doua explicație este că Naive RAG recuperează corect fragmentul în 83,5\% din cazuri, ceea ce înseamnă că modelul generativ primea oricum contextul corect pentru cea mai mare parte a întrebărilor. Câștigul din Advanced RAG vine tocmai din cazurile dificile, adică interogările cu termeni rari sau cu răspunsuri scurte greu de localizat prin similaritate semantică pură, unde generarea oricum eșuează mai des.
-
 \subsection{Constrângerea de grounding și refuzurile de a răspunde}
 
-Ambele pipeline-uri folosesc un prompt de sistem care constrânge modelul să răspundă exclusiv din contextul furnizat și să refuze explicit dacă informația lipsește. Exact promptul de refuz este: \textit{``The provided context does not contain enough information to answer this question.''} Această decizie de proiectare este direct motivată de principiul fidelității contextuale descris în~\cite{asai2023self}: un sistem care preferă să refuze să răspundă ,decât să inventeze, este mai fiabil decât unul care generează răspunsuri plauzibile dar incorecte.
+Ambele pipeline-uri folosesc un prompt de sistem care constrânge modelul să răspundă exclusiv din contextul furnizat și să refuze explicit dacă informația lipsește. Exact promptul de refuz este: \textit{``The provided context does not contain enough information to answer this question.''} Această decizie de proiectare este direct motivată de principiul fidelității contextuale descris în~\cite{asai2023self}: un sistem care preferă să refuze să răspundă, decât să inventeze, este mai fiabil decât unul care generează răspunsuri plauzibile dar incorecte.
 
 Refuzurile nu pot fi evaluate cu Answer F1 sau Exact Match, deoarece nu conțin conținut factual comparabil cu referința. Advanced RAG generează mai puține refuzuri decât Naive RAG, pentru că recuperează mai frecvent fragmentul corect și îl plasează pe primele poziții, astfel că modelul primește mai rar un context din care nu poate răspunde.
-
-\subsection{Observații calitative din interfața Streamlit}
-
-Interfața Streamlit permite observarea directă a diferențelor de comportament fără a parcurge metricile agregate.
-
-Pe întrebări cu termeni numerici sau coduri specifice (``Câte specii...'', ``În ce an...'', ``Care este codul...''), Naive RAG returnează adesea fragmente tematic relevante care nu conțin numărul exact. Advanced RAG găsește fragmentul corect prin BM25, care tratează numerele ca termeni distincți și nu le diluează în spațiu vectorial.
-
-Când răspunsul nu există în corpus, ambele sisteme refuză explicit. Diferența este că Advanced RAG produce mai rar răspunsuri parțiale construite din context adiacent irelevant, deoarece cross-encoder-ul elimină candidații slab relevanți înainte de generare.
-
-Pe întrebări tematice generale (``Despre ce este...'', ``Care este rolul...''), ambele sisteme produc rezultate similare. Recuperarea densă funcționează bine pe similitudine semantică, iar avantajul hibridizării este mai puțin pronunțat în aceste cazuri.
-
-Aceste observații sunt consistente cu rezultatele cantitative: câștigurile Advanced RAG sunt mai mari pe cazurile dificile (termeni rari, răspunsuri numerice) și mai mici pe interogările tematice generale, unde recuperarea densă funcționează deja bine~\cite{gao2024retrievalaugmentedgenerationlargelanguage,robertson2009bm25}.
-
-\subsection{Analiza erorilor}
-
-Deși Advanced RAG depășește Naive RAG în ansamblu, testul McNemar arată că există și cazuri în care varianta de bază răspunde corect, iar cea avansată nu. La Exact Match, 20 de întrebări sunt rezolvate de Naive RAG, dar ratate de Advanced RAG, față de 82 în situația inversă. La Context Recall, raportul este de doar 2 la 74. Aceste cazuri minoritare merită analizate, deoarece arată limitele optimizărilor.
-
-O primă sursă de erori ține de expansiunea interogărilor. Atunci când modelul de reformulare produce variante care se îndepărtează de sensul original, recuperarea hibridă poate aduce fragmente relevante pentru reformulare, dar nu pentru întrebarea reală. În aceste situații, simplitatea recuperării dense a Naive RAG, care lucrează direct cu interogarea originală, devine un avantaj. Acest fenomen explică o parte din cele 20 de cazuri unde Naive RAG obține Exact Match, iar Advanced RAG nu.
-
-O a doua sursă ține de reranking. Cross-encoderul reordonează fragmentele după relevanța estimată, dar estimarea nu este perfectă: ocazional, un fragment care conține răspunsul exact este plasat sub pragul de cinci fragmente, în timp ce recuperarea densă simplă l-ar fi păstrat. Aceste erori sunt rare, dar reale, și ilustrează că o etapă suplimentară de procesare nu garantează întotdeauna un rezultat mai bun pe fiecare interogare în parte.
-
-A treia categorie ține de natura metricii Exact Match. O parte din diferențele observate nu reflectă răspunsuri greșite, ci reformulări: ambele sisteme pot produce un răspuns corect semantic, dar care nu se potrivește exact cu referința. În aceste cazuri, diferența la Exact Match este un artefact al metricii, nu o eroare reală de extragere. Această observație întărește argumentul că o evaluare completă necesită și metrici care tolerează reformularea, precum cele bazate pe fidelitate.
 
 \subsection{Limitările analizei}
 
@@ -543,3 +305,51 @@ Prima ține de seturile de date și de modul în care a fost formulată sarcina.
 A doua ține de scala evaluării și de pregătirea datelor. Cele 600 de întrebări per sistem pe SQuAD și 300 pe DocRED oferă o bază statistică solidă, dar fiecare corpus provine dintr-o singură sursă, relativ omogenă ca stil. Pe corpusuri mai mari și mai diverse, comportamentul celor două sisteme ar putea diferi, în special în privința latenței și a calității recuperării. În plus, documentele DocRED sunt codificate integral, însă modelul de embedding trunchiază textul dincolo de aproximativ 256 de token-uri, ceea ce poate ascunde relații aflate în partea finală a documentelor lungi. Trunchierea afectează ambele pipeline-uri în egală măsură, deci comparația rămâne corectă, dar valorile absolute de recall trebuie citite cu această rezervă~\cite{yao2019docred}.
 
 A treia ține de evaluarea calității răspunsului. Metricile de potrivire cu referința (Exact Match și Answer F1) nu surprind fidelitatea răspunsului față de contextul recuperat, motiv pentru care a fost adăugată evaluarea RAGAS. Aceasta are însă propriile limite: folosește tot un model lingvistic ca evaluator, din aceeași familie (Qwen3) cu cel care a generat răspunsurile, ceea ce poate introduce o părtinire, iar valorile de fidelitate trebuie interpretate ca relative între cele două sisteme, nu ca scoruri absolute~\cite{es2024ragas}. De asemenea, întrebările fără răspuns folosite pentru testul de halucinație se bazează pe adnotările incomplete ale DocRED, astfel încât o relație presupusă inexistentă poate fi ocazional adevărată, adăugând zgomot acelei metrici~\cite{tan2022redocred}.
+
+\section{Demonstratorul}
+
+Partea aplicativă a lucrării constă într-un demonstrator open-source care implementează cele două pipeline-uri și le expune printr-o interfață interactivă, alături de un modul de evaluare automată care a produs rezultatele din acest capitol. Demonstratorul este instrumentul studiului comparativ, nu scopul lui; această secțiune descrie interfața, modulul de evaluare și deciziile luate pe parcursul dezvoltării.
+
+\subsection{Interfața și fluxul utilizatorului}
+
+Interfața este construită cu Streamlit și are forma unei conversații. Utilizatorul scrie o întrebare, iar răspunsurile celor două sisteme apar una lângă alta, pe două coloane, fiecare cu timpul de generare afișat deasupra. Această așezare face comparația imediată: pe aceeași întrebare se vede direct cum diferă răspunsurile și cât durează fiecare.
+
+La pornire, interfața încarcă o singură dată modelele și indexul BM25 și le păstrează în memorie printr-un mecanism de cache. Fără acest pas, fiecare interogare ar reîncărca modelele de pe disc, ceea ce ar face interacțiunea inutilizabil de lentă. Când utilizatorul trimite o întrebare, sistemul recuperează fragmentele pentru ambele pipeline-uri, apoi generează cele două răspunsuri în paralel, pe fire de execuție separate, ca să nu aștepte un sistem după celălalt. Răspunsurile sunt apoi adăugate în istoricul conversației, păstrat pe durata sesiunii.
+
+Legătura dintre interfață și arhitectura RAG este directă. Coloana din stânga apelează pipeline-ul Naive, cea din dreapta pipeline-ul Advanced, iar ambele citesc din aceleași indexuri construite în faza offline. Interfața nu conține logică de recuperare proprie; ea doar orchestrează apelurile către cele două module și afișează rezultatele. Figurile~\ref{fig:ui-principal} și~\ref{fig:ui-exemplu} prezintă interfața în uz.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\linewidth]{Imagini/ui_naive_no_answer.png}
+\caption{Interfața comparativă a demonstratorului. Cele două coloane corespund pipeline-urilor Naive și Advanced, care răspund simultan la aceeași întrebare, cu timpii de generare afișați deasupra fiecărui răspuns. În acest exemplu, Naive RAG nu găsește răspunsul, în timp ce Advanced RAG recuperează fragmentul corect.}
+\label{fig:ui-principal}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\linewidth]{Imagini/ui_naive_hallucinate_numeric.png}
+\caption{Exemplu de interogare cu termeni numerici. Naive RAG produce un răspuns numeric halucinat, deoarece similaritatea cosinus ratează valoarea exactă, în timp ce Advanced RAG găsește valoarea corectă prin recuperarea BM25.}
+\label{fig:ui-exemplu}
+\end{figure}
+
+\subsection{Modulul de evaluare}
+
+Pe lângă cele două pipeline-uri și interfață, demonstratorul include un modul de evaluare automată, implementat în scriptul \texttt{benchmark.py}. Rolul lui este să ruleze ambele sisteme pe același eșantion de întrebări și să producă metricile, testele statistice și figurile raportate în acest capitol, fără intervenție manuală.
+
+Modulul funcționează în bucle imbricate: pentru fiecare seed se extrage un eșantion de întrebări din setul de date activ (SQuAD sau DocRED), iar pentru fiecare întrebare se rulează ambele pipeline-uri și se înregistrează fragmentele recuperate, timpul de procesare și, opțional, răspunsul generat. Evaluarea răspunsurilor este opțională tocmai pentru că generarea este pasul cel mai lent: metricile de recuperare se pot calcula rapid și separat, fără apeluri la modelul generativ.
+
+O decizie de implementare care s-a dovedit utilă este salvarea de checkpoint: după fiecare seed, rezultatele parțiale se scriu pe disc printr-o înlocuire atomică de fișier, astfel încât o întrerupere în timpul rulării (care poate dura ore cu generarea activată) să nu piardă seed-urile deja terminate. O alta privește tratarea refuzurilor la evaluarea cu RAGAS: răspunsurile în care sistemul declară explicit că informația lipsește din context sunt excluse din evaluarea RAGAS, deoarece un refuz corect nu conține afirmații de verificat și ar fi altfel penalizat ca un răspuns nerelevant, ceea ce ar distorsiona comparația în defavoarea sistemului mai prudent.
+
+La final, modulul agregă rezultatele pe toate seed-urile, calculează media și deviația standard pentru fiecare metrică, rulează testele de semnificație pe perechile de rezultate și generează automat figurile comparative în format PDF și PNG, gata de inclus în lucrare.
+
+\subsection{Procesul de dezvoltare}
+
+Implementarea a pornit cu varianta minimă funcțională: indexarea datelor SQuAD în ChromaDB și un pipeline Naive conectat la interfața Streamlit. Abia după ce baseline-ul funcționa de la cap la coadă au fost adăugate, una câte una, componentele Advanced RAG, ca să se poată vedea la fiecare pas ce aduce fiecare optimizare.
+
+Prima extensie a fost recuperarea sparse cu BM25~\cite{robertson2009bm25}. Inițial s-a folosit biblioteca \texttt{rank\_bm25}, dar aceasta a fost înlocuită cu \texttt{bm25s}, mult mai rapidă prin tokenizare în loturi și indexare optimizată. Pentru că reconstruirea indexului la fiecare pornire era costisitoare, indexul se calculează o singură dată și se salvează pe disc.
+
+Configurarea cross-encoderului a cerut câteva încercări. Au fost testate mai multe modele de reranking, inclusiv o variantă mai mare, abandonată în favoarea lui \texttt{ms-marco-MiniLM-L-6-v2}, care oferă un compromis bun între precizie și viteză. Pool-ul de candidați trimiși la reranking a crescut de la 20 la 40 pe parcurs, după ce s-a observat că un pool mai mic tăia uneori fragmentele relevante înainte ca cross-encoderul să le poată evalua.
+
+Expansiunea interogărilor a trecut și ea prin ajustări. Modelul de reformulare a fost schimbat pe Qwen3-1.7B, iar recuperările pentru variantele de interogare au fost paralelizate, pentru că rularea lor secvențială dubla timpul de răspuns. Toate aceste decizii sunt vizibile în istoricul de versiuni al proiectului, unde fiecare modificare corespunde unui pas în rafinarea pipeline-ului.
+
+În final, modulul de evaluare a fost construit cu suport pentru mai multe seed-uri și checkpoint după fiecare rulare, astfel încât o întrerupere să nu piardă rezultatele deja calculate. Testele de semnificație statistică (Wilcoxon și McNemar) au fost adăugate ulterior, pentru a verifica dacă diferențele observate sunt reale sau doar artefacte ale eșantionării aleatoare.
