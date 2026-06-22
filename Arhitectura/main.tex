@@ -43,7 +43,7 @@ Figura~\ref{fig:offline} prezintă faza offline. Setul de date este încărcat, 
 
 Pe partea funcțională, sistemul trebuie să implementeze două pipeline-uri RAG complete, de la interogare la răspuns, peste aceeași bază de cunoștințe. Trebuie să existe o interfață care permite interogarea simultană a ambelor sisteme și afișarea răspunsurilor una lângă alta, astfel încât diferențele să fie vizibile direct. În plus, este nevoie de un modul de evaluare automată care rulează cele două sisteme pe un set de întrebări și calculează metrici comparative.
 
-Pe partea nefuncțională, comparația trebuie să fie corectă, ceea ce înseamnă că singura variabilă între cele două sisteme este arhitectura de recuperare. Rezultatele trebuie să fie reproducibile, motiv pentru care evaluarea rulează local, cu seed-uri fixate. Sistemul trebuie să ruleze pe o singură placă grafică de consum, fără infrastructură distribuită. În fine, codul trebuie organizat modular, cu pipeline-urile separate de interfață și de modulul de evaluare, pentru ca fiecare componentă să poată fi modificată independent.
+Pe partea nefuncțională, comparația trebuie să fie corectă, ceea ce înseamnă că singura variabilă între cele două sisteme este arhitectura de recuperare. Rezultatele trebuie să fie reproducibile, motiv pentru care evaluarea rulează local, cu seed-uri fixate. Sistemul trebuie să ruleze pe o singură placă grafică de consum, fără infrastructură distribuită. Codul trebuie organizat modular, cu pipeline-urile separate de interfață și de modulul de evaluare, pentru ca fiecare componentă să poată fi modificată independent.
 
 \section{Tehnologii utilizate}
 
@@ -131,7 +131,7 @@ Promptul de sistem cere modelului să răspundă doar pe baza contextului și s�
 
 \section{Pipeline-ul Advanced RAG}
 
-Advanced RAG adaugă patru etape peste varianta de bază: expansiunea interogării, recuperarea hibridă, fuziunea rezultatelor și rerankingul. Figura~\ref{fig:advanced} prezintă fluxul complet, iar Tabelul~\ref{tab:parametri} listează parametrii folosiți.
+Advanced RAG adaugă patru etape peste varianta de bază: expansiunea interogării, recuperarea hibridă, fuziunea rezultatelor și reranking-ul. Figura~\ref{fig:advanced} prezintă fluxul complet, iar Tabelul~\ref{tab:parametri} listează parametrii folosiți.
 
 \begin{figure}[ht]
 \centering
@@ -150,7 +150,7 @@ Advanced RAG adaugă patru etape peste varianta de bază: expansiunea interogăr
 \node[box, below=of exp] (variants) {Interogări: $q$, $q_1$, $q_2$};
 \node[small, below left=0.6cm and 0.1cm of variants] (dense) {Recuperare densă\\top-20 (ChromaDB)};
 \node[small, below right=0.6cm and 0.1cm of variants] (sparse) {Recuperare BM25\\top-20};
-\node[box, below=1.5cm of variants] (rrf) {Reciprocal Rank Fusion ($k=60$)};
+\node[box, below=2.2cm of variants] (rrf) {Reciprocal Rank Fusion ($k=60$)};
 \node[box, below=of rrf] (pool) {Primii 40 de candidați};
 \node[box, below=of pool] (rerank) {Reranking cross-encoder};
 \node[box, below=of rerank] (top5) {Primele 5 fragmente};
@@ -201,5 +201,5 @@ A treia etapă fuzionează cele șase liste de rezultate prin Reciprocal Rank Fu
 \end{equation}
 unde $r_l(d)$ este rangul fragmentului $d$ în lista $l$, iar $k=60$. Constanta $k$ atenuează influența pozițiilor de top, astfel încât un fragment aflat constant pe locuri bune în mai multe liste să fie favorizat față de unul aflat pe primul loc într-o singură listă. După fuziune se păstrează primii 40 de candidați.
 
-A patra etapă este rerankingul. Cross-encoderul \texttt{ms-marco-MiniLM-L-6-v2} primește perechea (interogare, fragment) și produce un scor de relevanță. Spre deosebire de modelul de embedding, care codifică separat interogarea și fragmentul, cross-encoderul le procesează împreună, ceea ce dă o estimare mai precisă a relevanței, dar cu un cost de calcul mai mare. Din acest motiv el se aplică doar celor 40 de candidați rămași, nu întregului corpus. Primele cinci fragmente după rerankingul cross-encoder ajung la modelul generativ, care produce răspunsul cu același prompt de grounding ca în varianta Naive.
+A patra etapă este reranking-ul. Cross-encoder-ul \texttt{ms-marco-MiniLM-L-6-v2} primește perechea (interogare, fragment) și produce un scor de relevanță. Spre deosebire de modelul de embedding, care codifică separat interogarea și fragmentul, cross-encoder-ul le procesează împreună, ceea ce dă o estimare mai precisă a relevanței, dar cu un cost de calcul mai mare. Din acest motiv el se aplică doar celor 40 de candidați rămași, nu întregului corpus. Primele cinci fragmente după reranking-ul cross-encoder ajung la modelul generativ, care produce răspunsul cu același prompt de grounding ca în varianta Naive.
 

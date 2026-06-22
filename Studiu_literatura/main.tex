@@ -9,7 +9,7 @@ Revoluția modelelor bazate pe arhitectura transformer, apărută în 2017~\cite
 \begin{figure}
     \centering
     \includegraphics[width=1\linewidth]{Imagini/grafic_crestere_llm_automat.png}
-    \caption{Creșterea numărului de lucrări despre lingvistice mari (LLMs) publicate pe arXiv, 2017--2025.}
+    \caption{Creșterea numărului de lucrări despre modele lingvistice mari (LLMs) publicate pe arXiv, 2017--2025.}
     \label{fig:evolutie_llm}
 \end{figure}
 
@@ -23,9 +23,9 @@ Pe măsură ce dimensiunea modelelor și a datelor de antrenare a crescut, capac
 
 \subsection{Problema: Cunoștințe statice care duc la halucinații}
 
-Fenomenul de „halucinație” reprezintă un răspuns aparent bine formulat, dar factual incorect, al unui LLM. Modelele generează text pe baza distribuției de probabilități a datelor cu care au fost antrenate, nu pe baza unor cunoștințe verificate. Pentru utilizatorul obișnuit, halucinațiile nu reprezintă un impediment major, însă există aplicații în care acestea sunt inacceptabile (medical, legal, financiar). 
+Fenomenul de „halucinație” reprezintă un răspuns aparent bine formulat, dar factual incorect, al unui LLM. Modelele generează text pe baza distribuției de probabilități a datelor cu care au fost antrenate, nu pe baza unor cunoștințe verificate. În utilizările cu miză mică, halucinațiile pot fi tolerate, însă în domenii critice precum cel medical, juridic sau financiar ele sunt inacceptabile.
 
-În plus, informația încorporată în parametrii modelului este de natură „statică”, reflectă cunoștințele cunoscute la momentul antrenării. După antrenare, singura metodă de actualizare a informației este procesul costisitor de fine-tuning.
+În plus, informația încorporată în parametrii modelului este de natură „statică”, reflectă cunoștințele cunoscute la momentul antrenării. După antrenare, singura metodă de actualizare a cunoștințelor parametrice este procesul costisitor de fine-tuning.
 
 \subsection{Soluția: Retrieval-Augmented Generation}
 
@@ -94,7 +94,7 @@ Cheia este reformularea sarcinii. În loc să antreneze un clasificator pentru o
 
 Avantajele se văd în câteva situații concrete. Când schema de relații este deschisă sau se schimbă des, RAG adaugă o relație prin actualizarea bazei de cunoștințe, nu prin reantrenare. Când dovada unei relații este împrăștiată în mai multe propoziții sau documente, recuperarea poate aduna pasajele relevante înainte de extragere, ceea ce ajută direct la relațiile la nivel de document~\cite{yao2019docred}. Și, fiindcă fiecare relație extrasă poate fi urmărită până la fragmentul care o susține, sistemul oferă proveniență (eng. \textit{„provenance”}) și devine auditabil, un avantaj important în domenii precum medicina sau dreptul.
 
-RAG nu înlocuiește însă metodele clasice peste tot, iar o comparație onestă cere precizarea limitelor. Pentru o schemă fixă, cu multe date adnotate, un clasificator supervizat dedicat poate fi mai precis și mult mai ieftin la inferență, fără latența și costul unui model generativ. Calitatea extragerii depinde critic de calitatea recuperării: dacă pasajul potrivit nu este recuperat, modelul fie refuză, fie inventează o relație, iar generarea introduce un risc de halucinație pe care clasificatoarele nu îl au. În fine, când relațiile sunt dense și explicit structurate, abordările care indexează direct legăturile dintre entități, precum GraphRAG și HippoRAG, pot fi mai potrivite decât recuperarea pe fragmente de text, deoarece exploatează structura de graf în loc să o reconstruiască din pasaje~\cite{edge2024graphrag, gutierrez2024hipporag}. RAG este, prin urmare, o opțiune atractivă mai ales pentru scheme deschise, relații rare și raționament la nivel de document, și mai puțin pentru sarcini fixe, bine delimitate, deja rezolvate eficient de metodele clasice.
+RAG nu înlocuiește însă metodele clasice peste tot, iar o comparație onestă cere precizarea limitelor. Pentru o schemă fixă, cu multe date adnotate, un clasificator supervizat dedicat poate fi mai precis și mult mai ieftin la inferență, fără latența și costul unui model generativ. Calitatea extragerii depinde critic de calitatea recuperării: dacă pasajul potrivit nu este recuperat, modelul fie refuză, fie inventează o relație, iar generarea introduce un risc de halucinație pe care clasificatoarele nu îl au. Când relațiile sunt dense și explicit structurate, abordările care indexează direct legăturile dintre entități, precum GraphRAG și HippoRAG, pot fi mai potrivite decât recuperarea pe fragmente de text, deoarece exploatează structura de graf în loc să o reconstruiască din pasaje~\cite{edge2024graphrag, gutierrez2024hipporag}. RAG este, prin urmare, o opțiune atractivă mai ales pentru scheme deschise, relații rare și raționament la nivel de document, și mai puțin pentru sarcini fixe, bine delimitate, deja rezolvate eficient de metodele clasice.
 
 \subsection{Relevanță și aplicații}
 
@@ -139,7 +139,7 @@ Paradigma originală din lucrarea Lewis et al. 2020~\cite{lewis2020rag}: indexar
 
 \textbf{Advanced RAG}
 
-Adaugă optimizări pre- și post-recuperare, precum: rescriere a interogărilor, recuperare hibridă, și reranking cu model special antrenat. Dovedește îmbunătățiri semnificative, între 5 și 15\% pe benchmark-uri, cu costuri computaționale moderate. Spre deosebire de Modular RAG, păstrează structura liniară a fluxului Naive, dar inserează etape de optimizare înainte și după recuperare. Acest echilibru între simplitate și performanță îl face o alegere practică pentru multe aplicații: aduce o parte importantă din beneficiile arhitecturilor complexe, fără complexitatea lor de implementare. Aceasta este arhitectura comparată în această lucrare cu varianta de bază.
+Adaugă optimizări pre- și post-recuperare, precum: rescriere a interogărilor, recuperare hibridă, și reranking cu model special antrenat. Dovedește îmbunătățiri semnificative față de varianta de bază pe benchmark-uri standard, cu costuri computaționale moderate. Spre deosebire de Modular RAG, păstrează structura liniară a fluxului Naive, dar inserează etape de optimizare înainte și după recuperare. Acest echilibru între simplitate și performanță îl face o alegere practică pentru multe aplicații: aduce o parte importantă din beneficiile arhitecturilor complexe, fără complexitatea lor de implementare. Aceasta este arhitectura comparată în această lucrare cu varianta de bază.
 
 \textbf{Modular RAG}
 
@@ -261,7 +261,7 @@ Compromisul fundamental este între specificitate și context~\cite{gao2024retri
 
 Calitatea recuperării dense depinde de modelul de embedding, care transformă textul într-un vector numeric. Modelele de embedding moderne sunt encodere bazate pe arhitectura transformer~\cite{vaswani2017attention}, antrenate astfel încât textele apropiate ca sens să aibă vectori apropiați în spațiul de reprezentare. Alegerea modelului implică un compromis între calitate și viteză: modelele mari produc reprezentări mai bune, dar sunt lente și costisitoare, în timp ce modelele compacte precum familia MiniLM oferă un raport bun între acuratețe și cost, motiv pentru care sunt des folosite în sistemele RAG fără constrângeri hardware mari.
 
-Vectorii rezultați sunt stocați într-o bază de date vectorială, care permite căutarea rapidă a celor mai apropiați vecini. Căutarea exactă a vecinilor într-un corpus mare ar fi prea lentă, așa că aceste baze de date folosesc algoritmi de căutare aproximativă a vecinilor (eng. \textit{„approximate nearest neighbor”}), de tipul grafurilor HNSW, care găsesc rapid vectori apropiați cu o pierdere mică de acuratețe. Soluții uzuale sunt FAISS, ChromaDB și Milvus.
+Vectorii rezultați sunt stocați într-o bază de date vectorială, care permite căutarea rapidă a celor mai apropiați vecini. Căutarea exactă a vecinilor într-un corpus mare ar fi prea lentă, așa că aceste baze de date folosesc algoritmi de căutare aproximativă a vecinilor (eng. \textit{„approximate nearest neighbor”}), de tipul grafurilor HNSW~\cite{malkov2018hnsw}, care găsesc rapid vectori apropiați cu o pierdere mică de acuratețe. Soluții uzuale sunt FAISS~\cite{johnson2019faiss}, ChromaDB și Milvus~\cite{wang2021milvus}.
 
 \subsection{Construcția promptului și augmentarea contextului}
 
@@ -293,15 +293,15 @@ Avantajul principal al Naive RAG este simplitatea: are puține componente, este 
 
 Dezavantajele sunt bine documentate. Sistemul nu gestionează variațiile lexicale (sinonime, parafrazări), deoarece se bazează exclusiv pe similaritatea semantică, nu evaluează calitatea documentelor recuperate și nu filtrează fragmentele irelevante înainte de generare~\cite{gao2024retrievalaugmentedgenerationlargelanguage}. Pe interogări cu termeni rari sau numerici, recuperarea densă ratează frecvent fragmentul corect, ceea ce limitează direct calitatea răspunsului final.
 
-Advanced RAG adaugă optimizări pre-recuperare și post-recuperare față de varianta de bază~\cite{gao2024retrievalaugmentedgenerationlargelanguage}. Pre-recuperare: fragmentare semantică, îmbogățirea fragmentelor cu metadate, generare de interogări multiple. Post-recuperare: reranking cu model cross-encoder, compactarea contextului pentru a reduce zgomotul din prompt. Scorurile dense și sparse sunt combinate prin RRF~\cite{cormack2009rrf}. Studiile raportează îmbunătățiri de 5--15\% față de Naive RAG pe benchmark-uri standard.
+Advanced RAG adaugă optimizări pre-recuperare și post-recuperare față de varianta de bază~\cite{gao2024retrievalaugmentedgenerationlargelanguage}. Pre-recuperare: fragmentare semantică, îmbogățirea fragmentelor cu metadate, generare de interogări multiple. Post-recuperare: reranking cu model cross-encoder, compactarea contextului pentru a reduce zgomotul din prompt. Scorurile dense și sparse sunt combinate prin RRF~\cite{cormack2009rrf}. Studiile raportează îmbunătățiri consistente față de Naive RAG pe benchmark-uri standard.
 
-Avantajul Advanced RAG este creșterea calității recuperării: recuperarea hibridă prinde atât potrivirile semantice, cât și pe cele lexicale, iar rerankingul așază fragmentele cu adevărat relevante pe primele poziții. Dezavantajul este costul: fiecare optimizare adaugă latență, iar expansiunea interogărilor presupune un apel suplimentar la un model de limbaj, ceea ce poate crește timpul de răspuns de câteva ori față de varianta de bază, după cum arată și partea experimentală a acestei lucrări.
+Avantajul Advanced RAG este creșterea calității recuperării: recuperarea hibridă prinde atât potrivirile semantice, cât și pe cele lexicale, iar reranking-ul așază fragmentele cu adevărat relevante pe primele poziții. Dezavantajul este costul: fiecare optimizare adaugă latență, iar expansiunea interogărilor presupune un apel suplimentar la un model de limbaj, ceea ce poate crește timpul de răspuns de câteva ori față de varianta de bază, după cum arată și partea experimentală a acestei lucrări.
 
-Pentru extragerea relațiilor, optimizările post-recuperare sunt direct relevante: identificarea corectă a unei relații necesită fragmente care conțin simultan ambele mențiuni de entitate și indiciile lexicali ai relației. Reranking-ul crește șansa ca aceste fragmente să ajungă în contextul modelului generativ. Aceasta este și arhitectura comparată cu varianta de bază în partea experimentală a lucrării.
+Pentru extragerea relațiilor, optimizările post-recuperare sunt direct relevante: identificarea corectă a unei relații necesită fragmente care conțin simultan ambele mențiuni de entitate și indiciile lexicale ale relației. Reranking-ul crește șansa ca aceste fragmente să ajungă în contextul modelului generativ. Aceasta este și arhitectura comparată cu varianta de bază în partea experimentală a lucrării.
 
 \subsection{Optimizări ale recuperării}
 
-Recuperarea densă stă la baza majorității sistemelor RAG moderne, inclusiv a celor comparate în această lucrare. Dense Passage Retrieval (DPR)~\cite{karpukhin2020dpr} folosește două encodere separate, unul pentru interogare și unul pentru pasaje, antrenate astfel încât perechile relevante să aibă vectori apropiați în spațiul de reprezentare. La recuperare, interogarea este codificată o singură dată, iar pasajul cu cea mai mare similaritate cosinus este returnat. Avantajul față de metodele lexicale precum BM25 este captarea sinonimiei și a parafrazării: DPR poate lega „loc de naștere” de „s-a născut la” chiar dacă termenii nu coincid. Limitarea este că un singur vector pentru întregul pasaj poate dilua termenii rari sau specifici.
+Recuperarea densă stă la baza majorității sistemelor RAG moderne, inclusiv a celor comparate în această lucrare. Dense Passage Retrieval (DPR)~\cite{karpukhin2020dpr} folosește două encodere separate, unul pentru interogare și unul pentru pasaje, antrenate astfel încât perechile relevante să aibă vectori apropiați în spațiul de reprezentare. La recuperare, interogarea este codificată o singură dată, iar pasajul cu cel mai mare scor de similaritate, calculat ca produs scalar între vectori, este returnat. Avantajul față de metodele lexicale precum BM25 este captarea sinonimiei și a parafrazării: DPR poate lega „loc de naștere” de „s-a născut la” chiar dacă termenii nu coincid. Limitarea este că un singur vector pentru întregul pasaj poate dilua termenii rari sau specifici.
 
 ColBERT~\cite{khattab2020colbert} rafinează această idee prin interacțiune târzie (eng. \textit{„late interaction”}). În loc de un singur vector per pasaj, ColBERT păstrează câte un vector pentru fiecare token și calculează relevanța prin suma similarităților maxime dintre tokenurile interogării și cele ale pasajului. Acest nivel fin de detaliu îmbunătățește precizia, mai ales pe interogări cu termeni specifici, dar crește costul de stocare și de calcul, deoarece indexul trebuie să rețină reprezentări la nivel de token. Pentru extragerea relațiilor, interacțiunea târzie ajută la potrivirea precisă a mențiunilor de entitate, care sunt adesea termeni rari.
 
@@ -319,7 +319,7 @@ Spre deosebire de optimizările modulare de mai sus, unele arhitecturi integreaz
 
 REALM~\cite{guu2020realm} integrează recuperarea chiar în etapa de pre-antrenare, tratând recuperatorul ca o variabilă latentă optimizată împreună cu modelul de limbaj. Abordarea arată că un recuperator co-antrenat cu generatorul înțelege mai bine ce tipuri de documente sunt utile pentru diferite sarcini.
 
-Fusion-in-Decoder (FiD)~\cite{izacard2021fid} codifică fiecare pasaj recuperat independent prin encoder, dar realizează fuziunea la nivelul decoderului. Astfel, modelul poate agrega dovezi din surse multiple fără a sufoca encoderele cu un context prea lung. RETRO~\cite{borgeaud2022retro} extinde această idee la scara corpusurilor de zeci de trilioane de tokenuri, fără a crește proporțional numărul de parametri ai modelului, obținând eficiență parametrică pe seama unei infrastructuri mai complexe.
+Fusion-in-Decoder (FiD)~\cite{izacard2021fid} codifică fiecare pasaj recuperat independent prin encoder, dar realizează fuziunea la nivelul decoderului. Astfel, modelul poate agrega dovezi din surse multiple fără a sufoca encoderele cu un context prea lung. RETRO~\cite{borgeaud2022retro} extinde această idee la scara unei baze de recuperare de ordinul trilioanelor de tokenuri, fără a crește proporțional numărul de parametri ai modelului, obținând eficiență parametrică pe seama unei infrastructuri mai complexe.
 
 Pentru extragerea relațiilor, mecanismul de fuziune din FiD contează mult: o relație poate fi susținută de dovezi distribuite în mai multe pasaje, iar fuziunea la nivelul decoderului permite modelului să combine aceste dovezi fără a fi limitat de lungimea unui singur context. Spre deosebire de concatenarea simplă a fragmentelor, această abordare scalează mai bine cu numărul de pasaje recuperate.
 
@@ -377,7 +377,7 @@ Tabelul~\ref{tab:metode} rezumă metodele prezentate, grupându-le după ideea p
 \textbf{Metodă} & \textbf{Idee principală} & \textbf{Relevanță pentru extragerea relațiilor} \\
 \midrule
 Naive RAG~\cite{lewis2020rag} & Recuperare densă + generare & Referință de bază; ratează termenii rari \\
-Advanced RAG~\cite{gao2024retrievalaugmentedgenerationlargelanguage} & Optimizări pre/post-recuperare & Rerankingul aduce fragmentele cu ambele entități \\
+Advanced RAG~\cite{gao2024retrievalaugmentedgenerationlargelanguage} & Optimizări pre/post-recuperare & Reranking-ul aduce fragmentele cu ambele entități \\
 ColBERT~\cite{khattab2020colbert} & Interacțiune târzie la nivel de token & Potrivire precisă a mențiunilor de entitate \\
 HyDE~\cite{gao2023hyde} & Pseudo-document generat & Îmbunătățește recall fără date etichetate \\
 RAPTOR~\cite{sarthi2024raptor} & Arbore de rezumate ierarhice & Agregare de dovezi multi-document \\
@@ -508,7 +508,7 @@ Evaluarea unui sistem RAG pentru extragerea relațiilor se sprijină pe două ti
 SQuAD & QA extractiv & Propoziție & Fragment de text ca răspuns \\
 Natural Questions & QA & Document & Întrebări reale, răspuns scurt/lung \\
 HotpotQA & QA multi-hop & Multi-document & Fapte justificative adnotate \\
-CRAG & QA factual & Web / GC & 4.409 perechi, dinamism temporal \\
+CRAG & QA factual & Web / graf & 4.409 perechi, dinamism temporal \\
 T-REx & Extragere relații & Document & Aliniament text-triplete Wikidata \\
 WebNLG & Extragere/verbalizare & Triplete RDF & Perechi date-text \\
 SemEval-2010 T8 & Extragere relații & Propoziție & Relații nominale, 9 tipuri \\
@@ -537,7 +537,7 @@ Limitările datelor și ale metricilor afectează direct evaluarea. Seturile de 
 
 Extragerea relațiilor între entități ridică dificultăți specifice. Identificarea unei relații necesită adesea agregarea dovezilor din mai multe propoziții sau documente, un raționament inter-propoziție greu de realizat într-un singur pas de recuperare~\cite{yao2019docred, edge2024graphrag}, iar relațiile implicite, care nu apar formulat explicit în text, adaugă o provocare suplimentară.
 
-Costul computațional este o constrângere practică. Indexarea densă, recuperarea hibridă, rerankingul cu cross-encoder și generarea cu modele mari consumă resurse semnificative~\cite{karpukhin2020dpr, borgeaud2022retro}. Abordările adaptive și active implică recuperare iterativă, cu mai multe apeluri la model pe interogare~\cite{jiang2023flare, jeong2024adaptiverag}, iar metodele bazate pe grafuri adaugă costul construirii și actualizării grafului de cunoștințe~\cite{sarthi2024raptor, gutierrez2024hipporag}. În absența unor resurse computaționale ample, aceste cerințe limitează scala la care sistemele pot fi evaluate sau folosite în producție.
+Costul computațional este o constrângere practică. Indexarea densă, recuperarea hibridă, reranking-ul cu cross-encoder și generarea cu modele mari consumă resurse semnificative~\cite{karpukhin2020dpr, borgeaud2022retro}. Abordările adaptive și active implică recuperare iterativă, cu mai multe apeluri la model pe interogare~\cite{jiang2023flare, jeong2024adaptiverag}, iar metodele bazate pe grafuri adaugă costul construirii și actualizării grafului de cunoștințe~\cite{sarthi2024raptor, gutierrez2024hipporag}. În absența unor resurse computaționale ample, aceste cerințe limitează scala la care sistemele pot fi evaluate sau folosite în producție.
 
 Evaluarea automată introduce o dependență circulară. Multe metrici specifice RAG, precum cele din cadrul RAGAS~\cite{es2024ragas}, folosesc un model de limbaj ca judecător pentru a aprecia fidelitatea sau relevanța răspunsului, iar calitatea evaluării ajunge să depindă de calitatea unui alt model de limbaj, care la rândul lui poate halucina sau aprecia greșit. În plus, evaluarea cu un model-judecător este lentă și costisitoare, deoarece presupune câte un apel suplimentar pentru fiecare pereche întrebare-răspuns evaluată, ceea ce face dificilă rularea pe seturi mari de date.
 
@@ -559,4 +559,4 @@ Tocmai din această sinteză rezultă întrebarea care motivează partea experim
 
 Lucrarea se plasează la intersecția optimizării recuperării cu dezvoltarea de mecanisme generative care integrează explicit dovezile recuperate. Studiul comparativ pune față în față Naive RAG și Advanced RAG, pornind de la observația că optimizările pre- și post-recuperare conduc la îmbunătățiri măsurabile ale fidelității și relevanței răspunsurilor~\cite{gao2024retrievalaugmentedgenerationlargelanguage, es2024ragas}, aspecte cu impact direct asupra corectitudinii relațiilor extrase.
 
-Direcția adoptată este motivată de un compromis practic. Arhitecturile bazate pe grafuri sunt cele mai potrivite structural pentru extragerea relațiilor, dar presupun un cost ridicat de construire a grafului și o complexitate de implementare semnificativă. Advanced RAG, prin recuperarea hibridă și rerankingul aplicate pe text nestructurat, oferă o parte importantă din beneficii la un cost mult mai mic, ceea ce îl face un punct de plecare rezonabil pentru studiul comparativ. Capitolele următoare descriu arhitectura acestui sistem și o compară cantitativ și calitativ cu varianta de bază.
+Direcția adoptată este motivată de un compromis practic. Arhitecturile bazate pe grafuri sunt cele mai potrivite structural pentru extragerea relațiilor, dar presupun un cost ridicat de construire a grafului și o complexitate de implementare semnificativă. Advanced RAG, prin recuperarea hibridă și reranking-ul aplicate pe text nestructurat, oferă o parte importantă din beneficii la un cost mult mai mic, ceea ce îl face un punct de plecare rezonabil pentru studiul comparativ. Capitolele următoare descriu arhitectura acestui sistem și o compară cantitativ și calitativ cu varianta de bază.
