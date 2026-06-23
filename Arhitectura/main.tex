@@ -6,7 +6,7 @@ Sistemul rulează integral local, pe hardware propriu, fără apeluri către ser
 
 Capitolul descrie proiectarea celor două fluxuri de procesare, de la cerințe și tehnologii până la algoritmii de recuperare. Demonstratorul care le implementează, cu interfața sa și cu modulul de evaluare folosit pentru a produce rezultatele, este prezentat separat, la finalul capitolului de rezultate.
 
-\section{Arhitectura generală}
+\section{Privire de ansamblu}
 
 Sistemul are două faze. Faza offline, executată câte o dată pentru fiecare set de date (SQuAD și DocRED), construiește baza de cunoștințe. Faza online, executată la fiecare interogare, recuperează fragmentele relevante și generează răspunsul. Codul este împărțit în module care corespund acestor faze: \texttt{ingest.py} pentru indexare, pachetele \texttt{naive} și \texttt{advanced} pentru cele două fluxuri de procesare, \texttt{benchmark.py} pentru evaluare și \texttt{main.py} pentru interfață.
 
