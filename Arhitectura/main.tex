@@ -4,13 +4,13 @@ Studiul comparativ din această lucrare pune față în față două arhitecturi
 
 Sistemul rulează integral local, pe hardware propriu, fără apeluri către servicii externe. Această alegere a fost importantă din două motive. Primul ține de reproducibilitate: un model rulat local produce aceleași rezultate de fiecare dată, fără a depinde de versiunea unui API care se poate schimba peste noapte. Al doilea ține de control: rularea locală oferă acces complet la promptul de sistem, la parametrii de recuperare și la fragmentele intermediare, ceea ce face posibilă analiza pas cu pas a comportamentului.
 
-Capitolul descrie proiectarea celor două pipeline-uri, de la cerințe și tehnologii până la algoritmii de recuperare. Demonstratorul care le implementează, cu interfața sa și cu modulul de evaluare folosit pentru a produce rezultatele, este prezentat separat, la finalul capitolului de rezultate.
+Capitolul descrie proiectarea celor două fluxuri de procesare, de la cerințe și tehnologii până la algoritmii de recuperare. Demonstratorul care le implementează, cu interfața sa și cu modulul de evaluare folosit pentru a produce rezultatele, este prezentat separat, la finalul capitolului de rezultate.
 
 \section{Arhitectura generală}
 
-Sistemul are două faze. Faza offline, executată câte o dată pentru fiecare set de date (SQuAD și DocRED), construiește baza de cunoștințe. Faza online, executată la fiecare interogare, recuperează fragmentele relevante și generează răspunsul. Codul este împărțit în module care corespund acestor faze: \texttt{ingest.py} pentru indexare, pachetele \texttt{naive} și \texttt{advanced} pentru cele două pipeline-uri, \texttt{benchmark.py} pentru evaluare și \texttt{main.py} pentru interfață.
+Sistemul are două faze. Faza offline, executată câte o dată pentru fiecare set de date (SQuAD și DocRED), construiește baza de cunoștințe. Faza online, executată la fiecare interogare, recuperează fragmentele relevante și generează răspunsul. Codul este împărțit în module care corespund acestor faze: \texttt{ingest.py} pentru indexare, pachetele \texttt{naive} și \texttt{advanced} pentru cele două fluxuri de procesare, \texttt{benchmark.py} pentru evaluare și \texttt{main.py} pentru interfață.
 
-Figura~\ref{fig:offline} prezintă faza offline. Setul de date este încărcat, unitățile sunt deduplicate, apoi codificate și depuse în două indexuri: unul dens în ChromaDB și unul rar, BM25. Ambele pipeline-uri citesc din aceleași indexuri, ceea ce garantează că diferențele de performanță provin din strategia de recuperare, nu din date diferite. Cele două pipeline-uri și fluxul lor de procesare sunt descrise în detaliu mai jos, după prezentarea cerințelor și a tehnologiilor.
+Figura~\ref{fig:offline} prezintă faza offline. Setul de date este încărcat, unitățile sunt deduplicate, apoi codificate și depuse în două indexuri: unul dens în ChromaDB și unul rar, BM25. Ambele fluxuri de procesare citesc din aceleași indexuri, ceea ce garantează că diferențele de performanță provin din strategia de recuperare, nu din date diferite. Cele două fluxuri de procesare sunt descrise în detaliu mai jos, după prezentarea cerințelor și a tehnologiilor.
 
 \begin{figure}[ht]
 \centering
@@ -33,7 +33,7 @@ Figura~\ref{fig:offline} prezintă faza offline. Setul de date este încărcat, 
 \draw[arr] (enc) -- (chroma);
 \draw[arr] (enc) -- (bm25);
 \end{tikzpicture}
-\caption{Faza offline de indexare. Unitățile unice ale setului de date (paragrafe pentru SQuAD, documente pentru DocRED) sunt codificate o singură dată și depuse în indexul dens (ChromaDB) și în indexul rar (BM25), folosite în comun de ambele pipeline-uri. Fiecare set de date are propriile indexuri.}
+\caption{Faza offline de indexare. Unitățile unice ale setului de date (paragrafe pentru SQuAD, documente pentru DocRED) sunt codificate o singură dată și depuse în indexul dens (ChromaDB) și în indexul rar (BM25), folosite în comun de ambele fluxuri de procesare. Fiecare set de date are propriile indexuri.}
 \label{fig:offline}
 \end{figure}
 
@@ -41,9 +41,9 @@ Figura~\ref{fig:offline} prezintă faza offline. Setul de date este încărcat, 
 
 Înainte de implementare au fost stabilite câteva cerințe care au ghidat deciziile ulterioare.
 
-Pe partea funcțională, sistemul trebuie să implementeze două pipeline-uri RAG complete, de la interogare la răspuns, peste aceeași bază de cunoștințe. Trebuie să existe o interfață care permite interogarea simultană a ambelor sisteme și afișarea răspunsurilor una lângă alta, astfel încât diferențele să fie vizibile direct. În plus, este nevoie de un modul de evaluare automată care rulează cele două sisteme pe un set de întrebări și calculează metrici comparative.
+Pe partea funcțională, sistemul trebuie să implementeze două fluxuri de procesare RAG complete, de la interogare la răspuns, peste aceeași bază de cunoștințe. Trebuie să existe o interfață care permite interogarea simultană a ambelor sisteme și afișarea răspunsurilor una lângă alta, astfel încât diferențele să fie vizibile direct. În plus, este nevoie de un modul de evaluare automată care rulează cele două sisteme pe un set de întrebări și calculează metrici comparative.
 
-Pe partea nefuncțională, comparația trebuie să fie corectă, ceea ce înseamnă că singura variabilă între cele două sisteme este arhitectura de recuperare. Rezultatele trebuie să fie reproducibile, motiv pentru care evaluarea rulează local, cu seed-uri fixate. Sistemul trebuie să ruleze pe o singură placă grafică de consum, fără infrastructură distribuită. Codul trebuie organizat modular, cu pipeline-urile separate de interfață și de modulul de evaluare, pentru ca fiecare componentă să poată fi modificată independent.
+Pe partea nefuncțională, comparația trebuie să fie corectă, ceea ce înseamnă că singura variabilă între cele două sisteme este arhitectura de recuperare. Rezultatele trebuie să fie reproducibile, motiv pentru care evaluarea rulează local, cu seed-uri fixate. Sistemul trebuie să ruleze pe o singură placă grafică de consum, fără infrastructură distribuită. Codul trebuie organizat modular, cu fluxurile de procesare separate de interfață și de modulul de evaluare, pentru ca fiecare componentă să poată fi modificată independent.
 
 \section{Tehnologii utilizate}
 
@@ -51,16 +51,15 @@ Tabelul~\ref{tab:tehnologii} rezumă tehnologiile folosite și rolul fiecăreia.
 
 \begin{table}[ht]
 \centering
-\caption{Tehnologiile utilizate în demonstrator}
-\label{tab:tehnologii}
+\small
 \begin{tabular}{lll}
 \toprule
 \textbf{Componentă} & \textbf{Tehnologie} & \textbf{Rol} \\
 \midrule
 Model generativ      & Ollama + Qwen3-8B            & Generarea răspunsului \\
 Expansiune interogări & Qwen3-1.7B                  & Reformularea interogării \\
-Model de embedding   & all-MiniLM-L6-v2            & Codificarea semantică a textului \\
-Reranking            & ms-marco-MiniLM-L-6-v2      & Re-scorarea fragmentelor \\
+Model de codificare  & all-MiniLM-L6-v2            & Codificarea semantică a textului \\
+Reordonare           & ms-marco-MiniLM-L-6-v2      & Re-scorarea fragmentelor \\
 Bază vectorială      & ChromaDB                    & Indexare și căutare densă \\
 Indexare rară        & bm25s                       & Căutare BM25 pe cuvinte cheie \\
 Interfață            & Streamlit                   & Interacțiune și vizualizare \\
@@ -68,16 +67,18 @@ Evaluare             & RAGAS, SciPy               & Metrici și teste statistice
 Set de date          & SQuAD, DocRED (HuggingFace) & Corpus și întrebări de test \\
 \bottomrule
 \end{tabular}
+\caption{Tehnologiile utilizate în demonstrator}
+\label{tab:tehnologii}
 \end{table}
 
 Modelul generativ este Qwen3-8B, rulat prin Ollama. Qwen3 are un mod de raționament (eng. \textit{„thinking mode”}) care poate fi dezactivat cu directiva \texttt{/no\_think} în prompt. Această opțiune este folosită la expansiunea interogărilor, unde un raționament extins ar încetini procesul fără să aducă un beneficiu real.
 
-Modelul de embedding este \texttt{all-MiniLM-L6-v2}, un model compact de aproximativ 22 de milioane de parametri care produce vectori de dimensiune 384, din familia encoderelor pentru recuperare densă a căror abordare seminală este DPR~\cite{karpukhin2020dpr}. Raportul bun între calitate și viteză îl face o alegere des întâlnită în sistemele RAG fără constrângeri hardware mari. Pentru reranking se folosește un cross-encoder din aceeași familie, \texttt{ms-marco-MiniLM-L-6-v2}, antrenat pentru a estima relevanța unei perechi (interogare, pasaj).
+Modelul de codificare este \texttt{all-MiniLM-L6-v2}, un model compact de aproximativ 22 de milioane de parametri care produce vectori de dimensiune 384, din familia encoderelor pentru recuperare densă a căror abordare seminală este DPR~\cite{karpukhin2020dpr}. Raportul bun între calitate și viteză îl face o alegere des întâlnită în sistemele RAG fără constrângeri hardware mari. Pentru reordonare se folosește un \textit{cross-encoder} din aceeași familie, \texttt{ms-marco-MiniLM-L-6-v2}, antrenat pentru a estima relevanța unei perechi (interogare, pasaj).
 
 \section{Configurația hardware}
 \label{sec:hardware}
 
-Întreg sistemul a fost dezvoltat și evaluat pe o singură stație de lucru, fără infrastructură distribuită. Configurația cuprinde o placă grafică NVIDIA RTX A5000 cu 24 GB de memorie video, un procesor Intel Xeon Silver 4309Y la 2,80 GHz cu 8 nuclee și 16 fire de execuție, 64 GB de memorie RAM și un disc M.2 de 1 TB. Placa grafică rulează cele două modele Qwen3 prin Ollama. Modelele de embedding și cross-encoder, mult mai mici, rulează tot pe placa grafică la evaluarea pe SQuAD, dar sunt mutate pe procesor la cea pe DocRED, pentru a lăsa întreaga memorie video modelelor lingvistice; din acest motiv latențele absolute pe DocRED sunt mai mari. Cei 24 GB de memorie video sunt suficienți pentru a ține simultan modelele Qwen3 și modelele auxiliare, fără a le descărca și reîncărca între interogări. Toate valorile de latență raportate în capitolul de rezultate depind de această configurație.
+Întreg sistemul a fost dezvoltat și evaluat pe o singură stație de lucru, fără infrastructură distribuită. Configurația cuprinde o placă grafică NVIDIA RTX A5000 cu 24 GB de memorie video, un procesor Intel Xeon Silver 4309Y la 2,80 GHz cu 8 nuclee și 16 fire de execuție, 64 GB de memorie RAM și un disc M.2 de 1 TB. Placa grafică rulează cele două modele Qwen3 prin Ollama. Modelele de codificare și \textit{cross-encoder}, mult mai mici, rulează tot pe placa grafică la evaluarea pe SQuAD, dar sunt mutate pe procesor la cea pe DocRED, pentru a lăsa întreaga memorie video modelelor lingvistice; din acest motiv latențele absolute pe DocRED sunt mai mari. Cei 24 GB de memorie video sunt suficienți pentru a ține simultan modelele Qwen3 și modelele auxiliare, fără a le descărca și reîncărca între interogări. Toate valorile de latență raportate în capitolul de rezultate depind de această configurație.
 
 \section{Indexarea datelor}
 
@@ -87,9 +88,9 @@ Unitatea de bază a corpusului este paragraful SQuAD, indexat ca atare. Nu se ap
 
 Aceeași procedură se aplică și setului DocRED, sarcina-țintă a lucrării, pe care se măsoară extragerea relațiilor între entități, în timp ce SQuAD rămâne setul de referință pentru validarea arhitecturii. Documentele DocRED sunt indexate ca unități, fără fragmentare suplimentară. Fiecare set de date are propria colecție ChromaDB și propriul index BM25, astfel încât recuperarea să nu amestece documente din surse diferite.
 
-\section{Pipeline-ul Naive RAG}
+\section{Fluxul de procesare Naive RAG}
 
-Naive RAG urmează cel mai simplu traseu posibil, cel din formularea originală a RAG~\cite{lewis2020rag}: codifică interogarea, caută cele mai apropiate fragmente prin similaritate cosinus și le trimite modelului generativ. Nu există reformulare, recuperare hibridă sau reranking. Pașii, ilustrați în Figura~\ref{fig:naive}, sunt următorii.
+Naive RAG urmează cel mai simplu traseu posibil, cel din formularea originală a RAG~\cite{lewis2020rag}: codifică interogarea, caută cele mai apropiate fragmente prin similaritate cosinus și le trimite modelului generativ. Nu există reformulare, recuperare hibridă sau reordonare. Pașii, ilustrați în Figura~\ref{fig:naive}, sunt următorii.
 
 \begin{enumerate}
     \item Interogarea este codificată cu \texttt{all-MiniLM-L6-v2} într-un vector de dimensiune 384.
@@ -123,15 +124,15 @@ Naive RAG urmează cel mai simplu traseu posibil, cel din formularea originală 
 \draw[arr] (search) -- (gen);
 \draw[arr] (gen) -- (ans);
 \end{tikzpicture}
-\caption{Fluxul de procesare Naive RAG. Interogarea este codificată, cele mai apropiate cinci fragmente sunt căutate prin similaritate cosinus în ChromaDB și trimise direct modelului generativ, fără reformulare, recuperare hibridă sau reranking.}
+\caption{Fluxul de procesare Naive RAG. Interogarea este codificată, cele mai apropiate cinci fragmente sunt căutate prin similaritate cosinus în ChromaDB și trimise direct modelului generativ, fără reformulare, recuperare hibridă sau reordonare.}
 \label{fig:naive}
 \end{figure}
 
-Promptul de sistem cere modelului să răspundă doar pe baza contextului și să refuze explicit dacă informația lipsește. Acest baseline are limitările cunoscute din literatură~\cite{gao2024retrievalaugmentedgenerationlargelanguage}: ratează termenii rari pe care similaritatea semantică îi diluează și nu filtrează fragmentele irelevante recuperate din greșeală.
+Promptul de sistem cere modelului să răspundă doar pe baza contextului și să refuze explicit dacă informația lipsește. Această variantă de bază are limitările cunoscute din literatură~\cite{gao2024retrievalaugmentedgenerationlargelanguage}: ratează termenii rari pe care similaritatea semantică îi diluează și nu filtrează fragmentele irelevante recuperate din greșeală.
 
-\section{Pipeline-ul Advanced RAG}
+\section{Fluxul de procesare Advanced RAG}
 
-Advanced RAG adaugă patru etape peste varianta de bază: expansiunea interogării, recuperarea hibridă, fuziunea rezultatelor și reranking-ul. Figura~\ref{fig:advanced} prezintă fluxul complet, iar Tabelul~\ref{tab:parametri} listează parametrii folosiți.
+Advanced RAG adaugă patru etape peste varianta de bază: expansiunea interogării, recuperarea hibridă, fuziunea rezultatelor și reordonarea. Figura~\ref{fig:advanced} prezintă fluxul complet, iar Tabelul~\ref{tab:parametri} listează parametrii folosiți.
 
 \begin{figure}[ht]
 \centering
@@ -152,7 +153,7 @@ Advanced RAG adaugă patru etape peste varianta de bază: expansiunea interogăr
 \node[small, below right=0.6cm and 0.1cm of variants] (sparse) {Recuperare BM25\\top-20};
 \node[box, below=2.2cm of variants] (rrf) {Reciprocal Rank Fusion ($k=60$)};
 \node[box, below=of rrf] (pool) {Primii 40 de candidați};
-\node[box, below=of pool] (rerank) {Reranking cross-encoder};
+\node[box, below=of pool] (rerank) {Reordonare \textit{cross-encoder}};
 \node[box, below=of rerank] (top5) {Primele 5 fragmente};
 \node[gen, below=of top5] (generate) {Generare Qwen3-8B};
 \node[gen, below=of generate] (answer) {Răspuns};
@@ -174,8 +175,6 @@ Advanced RAG adaugă patru etape peste varianta de bază: expansiunea interogăr
 
 \begin{table}[ht]
 \centering
-\caption{Parametrii pipeline-ului Advanced RAG}
-\label{tab:parametri}
 \begin{tabular}{lcl}
 \toprule
 \textbf{Parametru} & \textbf{Valoare} & \textbf{Semnificație} \\
@@ -184,10 +183,12 @@ Reformulări ale interogării & 2  & Variante generate pe lângă interogarea or
 Candidați denși per variantă & 20 & Fragmente returnate de ChromaDB \\
 Candidați BM25 per variantă  & 20 & Fragmente returnate de BM25 \\
 Constanta RRF                & 60 & Parametrul $k$ din fuziune \\
-Dimensiunea pool-ului        & 40 & Candidați trimiși la reranking \\
+Dimensiunea setului de candidați & 40 & Candidați trimiși la reordonare \\
 Fragmente finale             & 5  & Fragmente trimise modelului generativ \\
 \bottomrule
 \end{tabular}
+\caption{Parametrii fluxului de procesare Advanced RAG}
+\label{tab:parametri}
 \end{table}
 
 Prima etapă este expansiunea interogării. Un model mic, Qwen3-1.7B, generează două reformulări ale interogării originale. Scopul este reducerea dependenței de formularea exactă a întrebării: dacă utilizatorul folosește alți termeni decât cei din document, o reformulare bună poate recupera totuși fragmentul corect. Modelul mic a fost ales deliberat, pentru că reformularea nu cere raționament complex, iar acest apel se află pe calea critică a fiecărei interogări.
@@ -201,5 +202,5 @@ A treia etapă fuzionează cele șase liste de rezultate prin Reciprocal Rank Fu
 \end{equation}
 unde $r_l(d)$ este rangul fragmentului $d$ în lista $l$, iar $k=60$. Constanta $k$ atenuează influența pozițiilor de top, astfel încât un fragment aflat constant pe locuri bune în mai multe liste să fie favorizat față de unul aflat pe primul loc într-o singură listă. După fuziune se păstrează primii 40 de candidați.
 
-A patra etapă este reranking-ul. Cross-encoder-ul \texttt{ms-marco-MiniLM-L-6-v2} primește perechea (interogare, fragment) și produce un scor de relevanță. Spre deosebire de modelul de embedding, care codifică separat interogarea și fragmentul, cross-encoder-ul le procesează împreună, ceea ce dă o estimare mai precisă a relevanței, dar cu un cost de calcul mai mare. Din acest motiv el se aplică doar celor 40 de candidați rămași, nu întregului corpus. Primele cinci fragmente după reranking-ul cross-encoder ajung la modelul generativ, care produce răspunsul cu același prompt de grounding ca în varianta Naive.
+A patra etapă este reordonarea. \textit{Cross-encoder}-ul \texttt{ms-marco-MiniLM-L-6-v2} primește perechea (interogare, fragment) și produce un scor de relevanță. Spre deosebire de modelul de codificare, care codifică separat interogarea și fragmentul, \textit{cross-encoder}-ul le procesează împreună, ceea ce dă o estimare mai precisă a relevanței, dar cu un cost de calcul mai mare. Din acest motiv el se aplică doar celor 40 de candidați rămași, nu întregului corpus. Primele cinci fragmente după reordonarea cu \textit{cross-encoder} ajung la modelul generativ, care produce răspunsul cu același prompt de ancorare ca în varianta Naive.
 
