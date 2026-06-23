@@ -204,3 +204,5 @@ unde $r_l(d)$ este rangul fragmentului $d$ în lista $l$, iar $k=60$. Constanta 
 
 A patra etapă este reordonarea. \textit{Cross-encoder}-ul \texttt{ms-marco-MiniLM-L-6-v2} primește perechea (interogare, fragment) și produce un scor de relevanță. Spre deosebire de modelul de codificare, care codifică separat interogarea și fragmentul, \textit{cross-encoder}-ul le procesează împreună, ceea ce dă o estimare mai precisă a relevanței, dar cu un cost de calcul mai mare. Din acest motiv el se aplică doar celor 40 de candidați rămași, nu întregului corpus. Primele cinci fragmente după reordonarea cu \textit{cross-encoder} ajung la modelul generativ, care produce răspunsul cu același prompt de ancorare ca în varianta Naive.
 
+\afterpage{\blankpage}
+
