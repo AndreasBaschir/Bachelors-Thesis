@@ -1,0 +1,15 @@
+\chapter{Cod sursă - benchmark.py}
+\label{anexa:benchmark}
+
+Scriptul de evaluare rulează ambele pipeline-uri pe eșantioane extrase
+din dataset-ul selectat și calculează metricile de regăsire
+(\textit{Context Recall@K}, MRR, latență), calitatea răspunsurilor
+(F1, Exact Match), metricile RAGAS (Faithfulness, Answer Relevancy)
+și testele de semnificație statistică (Wilcoxon, McNemar).
+
+Sunt omise funcțiile auxiliare de afișare și generare figuri
+(\texttt{\_plot\_results}, \texttt{\_print\_results} etc.), păstrându-se
+exclusiv logica de evaluare și calculul metricilor.
+
+\lstinputlisting[language=Python, caption={benchmark.py - pipeline-ul de evaluare (extras)}]
+  {Cod/benchmark.py}
