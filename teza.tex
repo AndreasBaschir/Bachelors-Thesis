@@ -57,26 +57,29 @@
 \definecolor{backcolour}{rgb}{0.95,0.95,0.92}
 
 \lstdefinestyle{mystyle}{
-	language=Matlab,
- %   backgroundcolor=\color{backcolour},   
+ %   backgroundcolor=\color{backcolour},
     commentstyle=\color{codegreen},
     keywordstyle=\color{blue},
     numberstyle=\tiny\color{codegray},
     stringstyle=\color{codepurple},
 	basicstyle=\ttfamily\scriptsize,
-    breakatwhitespace=false,         
-    breaklines=true,                 
-    captionpos=b,                    
-    keepspaces=true,                 
-    numbers=left,                    
-    numbersep=5pt,                  
-    showspaces=false,                
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
     showstringspaces=false,
-    showtabs=false,                  
+    showtabs=false,
     tabsize=2
 }
- 
-\lstset{style=mystyle}
+
+\lstset{style=mystyle,
+  extendedchars=true,
+  literate=
+    {±}{{\ensuremath{\pm}}}1
+}
 
 \usepackage{tabularx}
 
@@ -185,7 +188,8 @@ Drd. Fiz. Alexandru IONIȚĂ}
 % ANEXE (numerotate incepand cu Anexa 1)
 % ======================================================
 \appendix
-%\include{Anexe/anexa_1}
-%\include{Anexe/anexa_n}
+\include{Anexe/anexa_cod_ingest}
+\include{Anexe/anexa_cod_main}
+\include{Anexe/anexa_cod_benchmark}
 
 \end{document}
