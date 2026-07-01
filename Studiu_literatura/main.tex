@@ -119,7 +119,7 @@ Pe baza criteriilor de mai sus, literatura distinge patru categorii principale d
 
 \textbf{Naive RAG}
 
-Paradigma originală din lucrarea Lewis et al. 2020~\cite{lewis2020rag}: indexare, urmată de recuperare densă și generare. Recuperatorul și generatorul sunt elemente separate, și nu se folosesc optimizări. Este arhitectura de bază, folosită ca referință în majoritatea studiilor~\cite{lewis2020rag}, incluzând această teză. 
+Paradigma originală din lucrarea Lewis et al. 2020~\cite{lewis2020rag}: indexare, urmată de recuperare densă și generare. Recuperatorul și generatorul sunt elemente separate, și nu se folosesc optimizări. Este arhitectura de bază, folosită ca referință în majoritatea studiilor, incluzând această teză. 
 
 \textbf{Advanced RAG}
 
@@ -243,7 +243,7 @@ Pentru extragerea relațiilor, modul de construire a promptului determină dacă
 
 \subsection{Compromisuri în proiectarea unui sistem RAG}
 
-Proiectarea unui sistem RAG presupune o serie de decizii între care există tensiuni. Niciuna nu are un răspuns universal corect; alegerea depinde de aplicație, de date și de resursele disponibile. Înțelegerea acestor compromisuri ajută la interpretarea rezultatelor din partea experimentală a lucrării.
+Proiectarea unui sistem RAG presupune o serie de decizii între care există compromisuri inevitabile. Niciuna nu are un răspuns universal corect; alegerea depinde de aplicație, de date și de resursele disponibile. Înțelegerea acestor compromisuri ajută la interpretarea rezultatelor din partea experimentală a lucrării.
 
 Primul compromis privește dimensiunea fragmentelor. Fragmentele mici sunt specifice și aduc puțin zgomot, dar riscă să piardă contextul necesar pentru identificarea unei relații care se întinde pe mai multe propoziții. Fragmentele mari păstrează contextul, dar diluează semnalul și consumă mai mult din spațiul limitat al promptului. Nu există o dimensiune optimă universală; ea depinde de structura textului și de tipul întrebărilor.
 
@@ -263,7 +263,7 @@ Dezavantajele sunt bine documentate. Sistemul nu gestionează variațiile lexica
 
 Advanced RAG adaugă optimizări pre-recuperare și post-recuperare față de varianta de bază~\cite{gao2024retrievalaugmentedgenerationlargelanguage}. Pre-recuperare: fragmentare semantică, îmbogățirea fragmentelor cu metadate, generare de interogări multiple. Post-recuperare: reordonare cu model \textit{cross-encoder}, compactarea contextului pentru a reduce zgomotul din prompt. Scorurile dense și rare sunt combinate prin RRF \textit{(Reciprocal Rank Fusion)}~\cite{cormack2009rrf}. Studiile raportează îmbunătățiri consistente față de Naive RAG pe teste de referință standard. Avantajul Advanced RAG este creșterea calității recuperării: recuperarea hibridă prinde atât potrivirile semantice, cât și pe cele lexicale, iar reordonarea așază fragmentele cu adevărat relevante pe primele poziții. Dezavantajul este costul: fiecare optimizare adaugă latență, iar expansiunea interogărilor presupune un apel suplimentar la un model de limbaj, ceea ce poate crește timpul de răspuns de câteva ori față de varianta de bază, după cum arată și partea experimentală a acestei lucrări.
 
-Pentru extragerea relațiilor, optimizările post-recuperare sunt direct relevante: identificarea corectă a unei relații necesită fragmente care conțin simultan ambele mențiuni de entitate și indiciile lexicale ale relației. Reordonarea crește șansa ca aceste fragmente să ajungă în contextul modelului generativ. Aceasta este și arhitectura comparată cu varianta de bază în partea experimentală a lucrării.
+Pentru extragerea relațiilor, optimizările post-recuperare sunt direct relevante: identificarea corectă a unei relații necesită fragmente care conțin simultan ambele mențiuni de entitate și indiciile lexicale ale relației. Reordonarea crește șansa ca aceste fragmente să ajungă în contextul modelului generativ.
 
 \subsection{Optimizări ale recuperării}
 

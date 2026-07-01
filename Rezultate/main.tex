@@ -308,7 +308,7 @@ Partea aplicativă a lucrării constă într-un demonstrator \textit{open-source
 
 \subsection{Interfața și fluxul utilizatorului}
 
-Interfața este construită cu Streamlit și are forma unei conversații. Utilizatorul scrie o întrebare, iar răspunsurile celor două sisteme apar una lângă alta, pe două coloane, fiecare cu timpul de generare afișat deasupra. Această așezare face comparația imediată: pe aceeași întrebare se vede direct cum diferă răspunsurile și cât durează fiecare.
+Interfața este construită cu Streamlit, în scriptul \texttt{main.py} (Anexa~\ref{anexa:main}), și are forma unei conversații. Utilizatorul scrie o întrebare, iar răspunsurile celor două sisteme apar una lângă alta, pe două coloane, fiecare cu timpul de generare afișat deasupra. Această așezare face comparația imediată: pe aceeași întrebare se vede direct cum diferă răspunsurile și cât durează fiecare.
 
 La pornire, interfața încarcă o singură dată modelele și indexul BM25 și le păstrează în memorie printr-un mecanism de cache. Fără acest pas, fiecare interogare ar reîncărca modelele de pe disc, ceea ce ar face interacțiunea inutilizabil de lentă. Când utilizatorul trimite o întrebare, sistemul recuperează fragmentele pentru ambele fluxuri de procesare, apoi generează cele două răspunsuri în paralel, pe fire de execuție separate, ca să nu aștepte un sistem după celălalt. Răspunsurile sunt apoi adăugate în istoricul conversației, păstrat pe durata sesiunii.
 
@@ -330,7 +330,7 @@ Legătura dintre interfață și arhitectura RAG este directă. Coloana din stâ
 
 \subsection{Modulul de evaluare}
 
-Pe lângă cele două fluxuri de procesare și interfață, demonstratorul include un modul de evaluare automată, implementat în scriptul \texttt{benchmark.py}. Rolul lui este să ruleze ambele sisteme pe același eșantion de întrebări și să producă metricile, testele statistice și figurile raportate în acest capitol, fără intervenție manuală.
+Pe lângă cele două fluxuri de procesare și interfață, demonstratorul include un modul de evaluare automată, implementat în scriptul \texttt{benchmark.py} (Anexa~\ref{anexa:benchmark}). Rolul lui este să ruleze ambele sisteme pe același eșantion de întrebări și să producă metricile, testele statistice și figurile raportate în acest capitol, fără intervenție manuală.
 
 Modulul funcționează în bucle imbricate: pentru fiecare seed se extrage un eșantion de întrebări din setul de date activ (SQuAD sau DocRED), iar pentru fiecare întrebare se rulează ambele fluxuri de procesare și se înregistrează fragmentele recuperate, timpul de procesare și, opțional, răspunsul generat. Evaluarea răspunsurilor este opțională tocmai pentru că generarea este pasul cel mai lent: metricile de recuperare se pot calcula rapid și separat, fără apeluri la modelul generativ.
 

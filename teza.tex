@@ -123,6 +123,27 @@
 }
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% -- Fiecare capitol / lista incepe pe pagina impara (recto) -----------
+% \chapter foloseste \clearpage in teza-upb.cls; il inlocuim cu
+% \cleardoublepage, care sare la urmatoarea pagina impara. Acopera atat
+% capitolele numerotate (Introducere, 1-3, Concluzii, Anexe), cat si
+% \chapter* (Lista figurilor/tabelelor, Lista acronimelor, Bibliografie).
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd{\chapter}{\clearpage}{\cleardoublepage}{}{%
+  \GenericError{}{teza: nu am putut patcha \string\chapter}{}{}}
+% Pagina verso introdusa de \cleardoublepage ramane complet goala
+% (fara numar de pagina sau antet).
+\renewcommand*{\cleardoublepage}{%
+  \clearpage
+  \if@twoside
+    \ifodd\c@page\else
+      \null\thispagestyle{empty}\newpage
+    \fi
+  \fi}
+\makeatother
+% ----------------------------------------------------------------------
+
 \begin{document}
 
 \author{Andreas BAȘCHIR}
@@ -146,23 +167,41 @@ Drd. Fiz. Alexandru IONIȚĂ}
 \submissionmonth{Iunie} 
 \submissionyear{2026}
 
+% --- Pagini scanate inserate in partea de inceput ---------------------
+% \beforepreface (din teza-upb.cls) construieste, in ordine:
+%   \titlep -> \anexa -> \declaratiep -> \tableofcontents (cuprinsul).
+% Suprascriem \anexa si \declaratiep ca sa inseram PDF-urile scanate
+% intre pagina de titlu si cuprins, fara a modifica fisierul .cls.
+\renewcommand\anexa{%
+  \blankpage% pagina goala intre coperta si Anexa 1-2
+  \includepdf[pages=-]{Anexe/scanuri/anexa_1_2.pdf}%
+  \blankpage% pagina goala intre Anexa 1-2 si Anexa 6
+  \includepdf[pages=1]{Anexe/scanuri/anexa_6.pdf}% doar pag. 1 (pag. 2 din scan e o pagina reziduala cu "23")
+  % pagina goala dupa Anexa 6 este adaugata de \beforepreface (\blankpage din .cls)
+  % pagina goala dintre declaratie si cuprins este si ea din .cls (al 2-lea \blankpage)
+}
+\renewcommand\declaratiep{%
+  \includepdf[pages=-]{Anexe/scanuri/declaratie_onestitate.pdf}%
+}
+% ----------------------------------------------------------------------
+
 %\afterpage{\blankpage}
 \beforepreface
 
 \pagestyle{empty}
 \listoffigures
-\afterpage{\blankpage}
 \listoftables
-\afterpage{\blankpage}
 
+% Inregistram intrarea in cuprins PE pagina (impara) unde apare titlul
+% "Lista acronimelor", inainte ca lista sa se reverse pe pagina urmatoare.
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{Lista acronimelor}
 \printnomenclature
 
-\addcontentsline{toc}{chapter}{Lista acronimelor}
 \include{Acronime/main}
 
-\afterpage{\blankpage}
-
-\afterpreface 
+\afterpreface
 
 % ======================================================
 % CAPITOLE
